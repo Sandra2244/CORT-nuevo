@@ -76,7 +76,31 @@ Estado: publicada y compilada en GitHub Actions; falta instalarla en el teléfon
 - [ ] Borrar el repo viejo y renombrar `CORT-nuevo` ▸ `CORT`: hace falta el alcance
       `delete_repo`, que aún no se ha aprobado.
 
-## Fase 2 — Voz completa y alarmas (después de F1)
+## Fase 2.0 — Híbrido, autonomía y asistente Android (plan aprobado 2026-10-29)
+
+Plano completo en `docs/ARQUITECTURA-2.0.md`. Decisiones en ADR-009 a ADR-012. Esta fase
+absorbe lo que antes eran la fase 2 (voz) y la fase 4 (Android).
+
+Lo que Sandra decidió en la encuesta: rol de asistente **y** overlay desde el día uno;
+CORT híbrido con modelos en el teléfono *y* en la PC; primer incremento = modo estudio;
+voz Piper/sherpa `es_ES` + `es_MX`.
+
+- [ ] **2.0.1 Estudio** — «Leer con CORT» en el menú de selección, TTS Piper, servicio en
+      primer plano con `MediaSession`, bienvenida de permisos y cola por frases.
+- [ ] **2.0.2 Presencia** — overlay transparente tipo Gemini, tile del panel rápido, rol
+      de asistente y «¿qué ves?» con cita del texto leído (o negativa honesta).
+- [ ] **2.0.3 Skills** — manifiestos `skill.json`, permisos por habilidad, JSON-RPC 2.0 y
+      migración de las 16 herramientas actuales.
+- [ ] **2.0.4 Agente** — planificador con presupuesto de pasos, aprobación ALLOW/DENY,
+      tablas `runs`/`steps` y vista de trazas.
+- [ ] **2.0.5 HUD 2.0** — paneles de telemetría del video, máquinas (PC y teléfono),
+      skills, diagnóstico y tablero; orbe conservado con anillo de marcas.
+- [ ] **2.0.6 Híbrido** — modelo local en el teléfono, router por tarea/batería/red y
+      sincronización incremental de memoria.
+
+Criterio de cierre de cada punto: la medición de `docs/MEDICIONES.md`, no la impresión.
+
+## Fase 2 — Voz completa y alarmas (absorbida por 2.0)
 
 - Wake word continua con Vosk en hilo propio y consumo < 3 % CPU.
 - VAD por energía, barge-in real, frases de confirmación.

@@ -130,10 +130,10 @@ depende de la versión de la herramienta.
 Corre en GitHub Actions (`.github/workflows/apk.yml`), no en el portátil: ahí sí hay
 JDK y SDK (`ANDROID_HOME`), y el equipo local tiene 2 núcleos y 1,8 GiB de RAM.
 
-`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.1.0 → 30100**
-(3.0.1 → 30001, 3.0.0 → 30000), por delante del 2.11.0 (21100) que está instalado. Esa es
-la condición para que Android ofrezca *Actualizar*: mismo paquete + misma llave + número
-más alto.
+`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.1.2 → 30102**
+(3.1.0 → 30100, 3.0.1 → 30001, 3.0.0 → 30000), por delante del 2.11.0 (21100) que está
+instalado. Esa es la condición para que Android ofrezca *Actualizar*: mismo paquete + misma
+llave + número más alto.
 
 ### La llave
 
@@ -183,19 +183,27 @@ declarado (`AndroidManifest.xml` ▸ `android:minSdkVersion="26"`, `aapt2 link -
 
 ## Qué está probado y qué no
 
-Probado, con el archivo ya publicado — hoy, la Release [`v3.0.1`](https://github.com/Sandra2244/CORT-nuevo/releases/latest):
+Probado, con el archivo ya publicado — hoy, la Release [`v3.1.2`](https://github.com/Sandra2244/CORT-nuevo/releases/latest):
 
 * GitHub Actions compila de verdad: `javac`, `d8`, `aapt2`, `zipalign` y `apksigner`
-  salieron verdes en el run `40875001609` (`v3.0.0`) y otra vez en `40878467846` (`v3.0.1`),
-  cada uno después de las 158 pruebas del job previo.
-* El APK resultante pesa 193.773 bytes y su sha256 está en `-firma.txt`
-  (`4e54f7c9…418a87` en 3.0.1), con `package: name='com.cort.ia' versionCode='30001'
-  versionName='3.0.1'` leído con `aapt2 dump badging`.
+  salieron verdes en el run `40942914232` (`v3.1.2`), después de las 158 pruebas del job
+  previo. Antes: `40875001609` (`v3.0.0`) y `40878467846` (`v3.0.1`).
+* El APK resultante pesa 201.965 bytes y su sha256 es
+  `cee5d84438a8acea65745006528ecca1adce557e15b63bfcae71e42ec6c4813a`, con
+  `package: name='com.cort.ia' versionCode='30102' versionName='3.1.2'` leído con
+  `aapt2 dump badging` (`-firma.txt` y `-auditoria.txt` de la Release).
 * La llave usada es la de siempre: `-firma.txt` dice `origen llave: el secreto
-  CORT_APK_KEYSTORE_B64 del repo` y `keytool -printcert -jarfile` lee en el APK nuevo
-  `CN=CORT` con huella `FA:AB:EF:46:…:A3:19:77` — idéntica a la del `2.11.0-nucleo`.
-* Lo que mira Android 11+: `minSdkVersion:'26'`, `targetSdkVersion:'34'`, 4 permisos justos,
-  `resources.arsc` de 1544 bytes sin comprimir y `zipalign -c 4` en verde (`-auditoria.txt`).
+  CORT_APK_KEYSTORE_B64 del repo` y `llave sha256: faabef46…ffa31977` — la misma del
+  `2.11.0-nucleo` ya instalado.
+* Los componentes del lector están dentro del APK: la tabla de cadenas del
+  `AndroidManifest.xml` binario contiene `LeerActivity`, `LectorService`,
+  `android.intent.action.PROCESS_TEXT` y `foregroundServiceType` (`-auditoria.txt`). Se
+  leen en **UTF-16**: por eso la comprobación acepta los dos anchos, y un `grep` de texto a
+  secas sobre el AXML no los habría encontrado.
+* Lo que mira Android 11+: `minSdkVersion:'26'`, `targetSdkVersion:'34'`, 7 permisos
+  (`INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`,
+  `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS`),
+  `resources.arsc` de 1544 bytes sin comprimir y `zipalign -c 4` en verde.
 * El camino del HUD por red con token desde la PC: 401 sin llave, 200 con ella, 401 con
   llave falsa, medido entrando por la IP de `wlan0`, y también en el navegador.
 
@@ -204,7 +212,7 @@ la dirección guardada, y que el micrófono del HUD funcione dentro del `WebView
 Android 16. Las dos se comprueban en cinco minutos con el móvil en la mano; hasta entonces
 esta sección es la única promesa que hay que leer.
 
-Con el lector (3.1.0) hay tres comprobaciones que sólo puede hacer el teléfono, y no se
+Con el lector (3.1.2) hay tres comprobaciones que sólo puede hacer el teléfono, y no se
 dan por hechas:
 
 1. Que **«Leer con CORT»** aparezca en el menú de selección y lea un párrafo.

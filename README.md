@@ -76,7 +76,8 @@ de octubre de 2026**:
 | Apps reales | apertura de `galculator` desde la allowlist y cierre posterior |
 | Diagnóstico | `scripts/install.sh` y `python3 -m cort --doctor` |
 | CI y publicación | en GitHub Actions, no en este portátil: el job `pruebas` deja las 158 verdes y corre `--once`; sólo después el job `apk` compila, firma y publica |
-| APK de bolsillo | `CORT-IA-3.0.1-bolsillo.apk` (193.773 bytes, sha256 `4e54f7c9…418a87` verificado con `sha256sum` y coincidiendo con `-firma.txt`) en la Release `v3.0.1`, con `package='com.cort.ia'`, `minSdkVersion 26`, `targetSdkVersion 34`, 4 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
+| APK de bolsillo | `CORT-IA-3.1.2-bolsillo.apk` (201.965 bytes, sha256 `cee5d844…c4813a` verificado con `sha256sum` y coincidiendo con `-firma.txt`) en la Release `v3.1.2`, con `package='com.cort.ia'`, `versionCode 30102`, `minSdkVersion 26`, `targetSdkVersion 34`, 7 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
+| Leer con CORT (2.0.1) | los cuatro componentes del lector están en el `AndroidManifest.xml` binario del APK publicado (`LeerActivity`, `LectorService`, `android.intent.action.PROCESS_TEXT`, `foregroundServiceType`), leídos de la tabla de cadenas en UTF-16; el run `40942914232` compiló con `javac`+`d8` después de las 158 pruebas |
 
 Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
 
@@ -215,7 +216,10 @@ no instala nada:
    pantalla completa. Probado en el navegador de escritorio; **en su A16 todavía no se instaló**,
    así que lo anotamos como pendiente.
 2. **APK de bolsillo (`apps/bolsillo/`).** Un WebView que abre ese mismo enlace y recuerda la
-   dirección, con permiso de micrófono propio para que la escucha funcione dentro de la app.
+   dirección, con permiso de micrófono propio para que la escucha funcione dentro de la app; y
+   desde la 3.1.2, **«Leer con CORT»**: seleccionar un párrafo en cualquier app y elegirlo en el
+   menú de selección para que te lo lea en voz alta, sin la PC. Detalles en
+   [`apps/bolsillo/README.md`](apps/bolsillo/README.md).
    Ya está compilado y publicado: en [Releases ▸ latest](https://github.com/Sandra2244/CORT-nuevo/releases/latest)
    está el `CORT-IA-<versión>-bolsillo.apk` con su `-firma.txt` y su `-auditoria.txt` al lado.
    Se instala encima de la CORT-IA anterior sin desinstalar ni perder datos — paquete

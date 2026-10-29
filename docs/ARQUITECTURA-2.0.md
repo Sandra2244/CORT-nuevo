@@ -299,5 +299,8 @@ Se copian las ideas (memoria jerárquica, grafo de estados), no el runtime.
 
 ---
 
-*Siguiente paso acordado: fase 2.0.1 «Modo estudio», empezando por el servicio de lectura
-y la voz Piper, que es lo que resuelve la necesidad de hoy.*
+*Estado al 2026-10-29: la 2.0.1 quedó publicada como APK `3.1.2` con la voz del sistema
+(`es_ES` ▸ `es_MX`) y la tubería completa —`ACTION_PROCESS_TEXT`, servicio en primer plano
+`mediaPlayback`, `MediaSession`, troceo por frase y reanudación por hash del texto—. Lo
+medido está en `docs/MEDICIONES.md`. La sustitución por Piper es 2.0.1b y espera la prueba
+en el A16: primero se valida la tubería, después se cambia el motor.*

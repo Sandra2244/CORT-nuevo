@@ -87,7 +87,7 @@ voz Piper/sherpa `es_ES` + `es_MX`.
 
 - [ ] **2.0.1 Estudio** — «Leer con CORT» en el menú de selección, TTS Piper, servicio en
       primer plano con `MediaSession`, bienvenida de permisos y cola por frases.
-      *Hecho en código* (2026-10-29), APK 3.1.0: `LeerActivity`
+      *Publicado* (2026-10-29) como APK 3.1.2: `LeerActivity`
       (`ACTION_PROCESS_TEXT` + `ACTION_SEND`), `LectorService` en primer plano
       `mediaPlayback`, troceo por frase con reanudación por hash del texto, controles en
       notificación, pantalla bloqueada y audífonos, voz `es_ES` ▸ `es_MX` del sistema y
@@ -106,7 +106,8 @@ voz Piper/sherpa `es_ES` + `es_MX`.
 - [ ] **2.0.6 Híbrido** — modelo local en el teléfono, router por tarea/batería/red y
       sincronización incremental de memoria.
 
-Criterio de cierre de cada punto: la medición de `docs/MEDICIONES.md`, no la impresión.
+Criterio de cierre de cada punto: la medición de [`docs/MEDICIONES.md`](MEDICIONES.md), no
+la impresión.
 
 ## Fase 2 — Voz completa y alarmas (absorbida por 2.0)
 

@@ -54,10 +54,9 @@ se anote el tiempo hasta la primera palabra.
 | Pruebas de huecos en el flujo | 5 (`tests/test_app.py`: se anota, no se anota si sale bien, se lista, se borra, cancelar no cuenta) | ídem |
 | La prueba puede fallar | se mutó el contador `veces` de `anotar_hueco` y la suite dio rojo; archivo restaurado y verificado con `md5sum -c` (`6706e377…6bb699`) | corrida local de mutación |
 | Texto de los fallos | todos salen de `cort/brain/honesto.py`; ninguna respuesta de error se arma en otro módulo | lectura de `app.py` y `harness.py` |
-| CI en `main` | `.github/workflows/pruebas.yml`: suite + `--once` en cada push y en cada PR | archivo en `main` |
+| CI en `main` | run `40951410613` en verde: **177 pruebas en 2,970 s** en el runner y `--once` respondiendo la hora; 16 s de job completo | GitHub Actions, `pruebas.yml`, push `38cebe6` |
 
-Lo que **no** está medido todavía: la suite corriendo en Actions con el flujo nuevo (se anota con
-el número de run cuando salga) y el juicio de Sandra escuchando la voz nueva en conversaciones
+Lo que **no** está medido todavía: el juicio de Sandra escuchando la voz nueva en conversaciones
 reales. Hasta entonces, «suena más cálida» es una intención, no una medición.
 
 ## Pendiente de medir en el A16

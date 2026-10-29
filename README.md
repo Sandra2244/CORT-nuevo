@@ -76,7 +76,7 @@ de octubre de 2026**:
 | Apps reales | apertura de `galculator` desde la allowlist y cierre posterior |
 | Diagnóstico | `scripts/install.sh` y `python3 -m cort --doctor` |
 | CI y publicación | en GitHub Actions, no en este portátil: el job `pruebas` deja las 158 verdes y corre `--once`; sólo después el job `apk` compila, firma y publica |
-| APK de bolsillo | `CORT-IA-3.0.0-bolsillo.apk` (193.773 bytes) en la Release `v3.0.0`, con `package='com.cort.ia'`, `versionCode 30000`, 4 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
+| APK de bolsillo | `CORT-IA-3.0.1-bolsillo.apk` (193.773 bytes, sha256 `4e54f7c9…418a87` verificado con `sha256sum` y coincidiendo con `-firma.txt`) en la Release `v3.0.1`, con `package='com.cort.ia'`, `minSdkVersion 26`, `targetSdkVersion 34`, 4 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
 
 Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
 

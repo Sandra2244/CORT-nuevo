@@ -66,9 +66,11 @@ Estado: publicada y compilada en GitHub Actions; falta instalarla en el teléfon
       cuando la PC no responde y permiso de micrófono en tiempo de ejecución.
 - [x] Compilación a mano (`aapt2` ▸ `javac` ▸ `d8` ▸ `zipalign` ▸ `apksigner`) en Actions, con
       la misma llave que firmó el `CORT-IA-2.11.0-nucleo.apk` (huella `FA:AB:EF:46:…:19:77`)
-      y `versionCode` 30000 > 21100: mismo paquete + misma llave + número más alto.
-- [x] Release `v3.0.0` con el APK, `-firma.txt` y `-auditoria.txt`; la auditoría deja
-      constancia de los 4 permisos, `resources.arsc` sin comprimir y alineado de a 4.
+      y `versionCode` 30001 > 21100: mismo paquete + misma llave + número más alto.
+- [x] Releases `v3.0.0` y `v3.0.1` con el APK, `-firma.txt` y `-auditoria.txt`; la auditoría
+      deja constancia de `minSdkVersion:'26'`, los 4 permisos, `resources.arsc` sin comprimir
+      y el alineado de a 4. La 3.0.1 existe porque se corrigió el `grep` que no reportaba el
+      mínimo: el artifact publicado sale del mismo código que está en `main`.
 - [ ] Instalación real encima del 2.11.0 en el A16, sin perder la dirección guardada.
 - [ ] Micrófono del HUD funcionando dentro del `WebView` (Android 16).
 - [ ] Borrar el repo viejo y renombrar `CORT-nuevo` ▸ `CORT`: hace falta el alcance
@@ -113,7 +115,7 @@ compila firmado. Falta el teléfono delante.
 El grueso se hizo en la fase 1.7; lo que queda es de acabado.
 
 - [x] Repo público, `main` como única rama, y CI que corre las pruebas antes del APK.
-- [x] Etiqueta `v3.0.0` con el APK firmado y sus dos archivos de evidencia.
+- [x] Etiquetas `v3.0.0` y `v3.0.1` con el APK firmado y sus dos archivos de evidencia.
 - [ ] README con badges, índice y capturas nuevas (la guía de instalación ya está).
 - [ ] Licencia y créditos (Sandra y Askher).
 - [ ] Borrar el repo viejo y renombrar `CORT-nuevo` ▸ `CORT`, cuando Sandra apruebe el

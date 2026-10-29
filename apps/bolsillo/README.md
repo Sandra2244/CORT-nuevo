@@ -78,9 +78,9 @@ apksigner sign --v1 --v2 --v3  → la llave de siempre
 Corre en GitHub Actions (`.github/workflows/apk.yml`), no en el portátil: ahí sí hay
 JDK y SDK (`ANDROID_HOME`), y el equipo local tiene 2 núcleos y 1,8 GiB de RAM.
 
-`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.0.0 → 30000**,
-por delante del 2.11.0 (21100) que está instalado. Esa es la condición para que Android
-ofrezca *Actualizar*: mismo paquete + misma llave + número más alto.
+`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.0.1 → 30001**
+(y 3.0.0 → 30000), por delante del 2.11.0 (21100) que está instalado. Esa es la condición
+para que Android ofrezca *Actualizar*: mismo paquete + misma llave + número más alto.
 
 ### La llave
 
@@ -121,27 +121,28 @@ acepte este APK entiende el esquema v2, y ése está verificado. Android valida 
 v2 y ni mira el bloque JAR. Lo que **sí** importa para que se instale encima es que la llave
 sea la misma, y esa huella está medida en los dos APK, no supuesta.
 
-Un detalle de la auditoría publicada: `-auditoria.txt` de `v3.0.0` muestra
+Un detalle de la auditoría: en `v3.0.0` el `-auditoria.txt` mostraba
 `targetSdkVersion:'34'` pero **no** la línea del mínimo, porque el `grep` que arma ese archivo
-buscaba `sdkVersion` en minúsculas y `aapt2` la escribe como `minSdkVersion`. El mínimo sí está
-declarado en `AndroidManifest.xml` (`android:minSdkVersion="26"`) y en `compilar.sh`
-(`aapt2 link --min-sdk-version 26`, `d8 --min-api 26`); lo que faltaba era verlo impreso en la
-evidencia. El `grep` ya está corregido, así que desde el siguiente run el archivo lo reporta.
+buscaba `sdkVersion` en minúsculas y `aapt2` la escribe como `minSdkVersion`. El mínimo sí estaba
+declarado (`AndroidManifest.xml` ▸ `android:minSdkVersion="26"`, `aapt2 link --min-sdk-version 26`,
+`d8 --min-api 26`); lo que faltaba era verlo impreso en la evidencia. Se corrigió el `grep` y
+`v3.0.1` sale con `minSdkVersion:'26'` en su auditoría. Lección: la evidencia se lee, no se supone.
 
 ## Qué está probado y qué no
 
-Probado, con el archivo ya publicado en la Release `v3.0.0`:
+Probado, con el archivo ya publicado — hoy, la Release [`v3.0.1`](https://github.com/Sandra2244/CORT-nuevo/releases/latest):
 
 * GitHub Actions compila de verdad: `javac`, `d8`, `aapt2`, `zipalign` y `apksigner`
-  salieron verdes en el run `40875001609`, después de las 158 pruebas del job previo.
+  salieron verdes en el run `40875001609` (`v3.0.0`) y otra vez en `40878467846` (`v3.0.1`),
+  cada uno después de las 158 pruebas del job previo.
 * El APK resultante pesa 193.773 bytes y su sha256 está en `-firma.txt`
-  (`d68074ae…88d0bb`), con `package: name='com.cort.ia' versionCode='30000'
-  versionName='3.0.0'` leído con `aapt2 dump badging`.
+  (`4e54f7c9…418a87` en 3.0.1), con `package: name='com.cort.ia' versionCode='30001'
+  versionName='3.0.1'` leído con `aapt2 dump badging`.
 * La llave usada es la de siempre: `-firma.txt` dice `origen llave: el secreto
-  CORT_APK_KEYSTORE_B64 del repo` y la huella coincide con la del APK de referencia,
-  comprobada con `keytool` sobre los dos archivos.
-* Lo que mira Android 11+: 4 permisos justos, `resources.arsc` de 1544 bytes sin
-  comprimir y `zipalign -c 4` en verde (`-auditoria.txt`).
+  CORT_APK_KEYSTORE_B64 del repo` y `keytool -printcert -jarfile` lee en el APK nuevo
+  `CN=CORT` con huella `FA:AB:EF:46:…:A3:19:77` — idéntica a la del `2.11.0-nucleo`.
+* Lo que mira Android 11+: `minSdkVersion:'26'`, `targetSdkVersion:'34'`, 4 permisos justos,
+  `resources.arsc` de 1544 bytes sin comprimir y `zipalign -c 4` en verde (`-auditoria.txt`).
 * El camino del HUD por red con token desde la PC: 401 sin llave, 200 con ella, 401 con
   llave falsa, medido entrando por la IP de `wlan0`, y también en el navegador.
 

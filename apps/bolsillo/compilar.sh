@@ -144,8 +144,11 @@ EOF
 # verdad, leído del APK ya firmado.
 {
     echo "== badging =="
+    # `minSdkVersion` va en la lista a propósito: aapt2 escribe la línea con la «S»
+    # mayúscula, así que un `grep sdkVersion` a secas nunca la atrapa y la auditoría
+    # sale sin el mínimo del APK.
     "$BT/aapt2" dump badging build/"$NOMBRE_APK" 2>/dev/null \
-        | grep -E "^package|versionCode|versionName|sdkVersion|targetSdkVersion|uses-permission|^application-label"
+        | grep -E "^package|versionCode|versionName|^sdkVersion|^minSdkVersion|^targetSdkVersion|uses-permission|^application-label"
     echo
     echo "== resources.arsc (Android 11 exige: sin comprimir y alineado a 4) =="
     python3 - "build/$NOMBRE_APK" <<'PY'

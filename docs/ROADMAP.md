@@ -5,7 +5,7 @@ fecha hasta que la fase 1 esté verificada.
 
 ## Fase 1 — Núcleo, HUD y comandos (2026-10-27 → 2026-10-29)
 
-Estado: completa en local; publicación pendiente de autorización de Sandra.
+Estado: completa en local y **publicada** en GitHub el 2026-10-29 (ver fase 1.7).
 
 - [x] Documento maestro, arquitectura y decisiones.
 - [x] Configuración, bus, memoria SQLite.
@@ -51,6 +51,29 @@ Estado: completa en local; falta la prueba en el teléfono.
 - [ ] Tarjetas de aprobación ALLOW/DENY para herramientas de riesgo alto.
 - [ ] Gestos con cámara (prototipo aislado antes de integrar).
 
+## Fase 1.7 — Publicación y APK de bolsillo (2026-10-29)
+
+Estado: publicada y compilada en GitHub Actions; falta instalarla en el teléfono.
+
+- [x] Llave del HUD: el servidor se niega a salir de `127.0.0.1` sin token, compara
+      `X-CORT-Token` o `?token=` en bytes y deja públicos sólo `/static/*`, `/favicon.ico`
+      y `/api/salud`. Medido por HTTP: 401 sin llave, 200 con ella, 401 con llave falsa.
+- [x] `hud.js` guarda el token en `sessionStorage` y lo borra de la barra de direcciones.
+- [x] `--host` y `--token` en la CLI; CORT imprime el enlace del teléfono con el token.
+- [x] Repo público en GitHub con `main` como única rama; 158 pruebas y `--once` corren en
+      Actions antes de dejar compilar el APK.
+- [x] `apps/bolsillo/`: cliente `WebView` sin AndroidX, Gradle ni Kotlin, con aviso honesto
+      cuando la PC no responde y permiso de micrófono en tiempo de ejecución.
+- [x] Compilación a mano (`aapt2` ▸ `javac` ▸ `d8` ▸ `zipalign` ▸ `apksigner`) en Actions, con
+      la misma llave que firmó el `CORT-IA-2.11.0-nucleo.apk` (huella `FA:AB:EF:46:…:19:77`)
+      y `versionCode` 30000 > 21100: mismo paquete + misma llave + número más alto.
+- [x] Release `v3.0.0` con el APK, `-firma.txt` y `-auditoria.txt`; la auditoría deja
+      constancia de los 4 permisos, `resources.arsc` sin comprimir y alineado de a 4.
+- [ ] Instalación real encima del 2.11.0 en el A16, sin perder la dirección guardada.
+- [ ] Micrófono del HUD funcionando dentro del `WebView` (Android 16).
+- [ ] Borrar el repo viejo y renombrar `CORT-nuevo` ▸ `CORT`: hace falta el alcance
+      `delete_repo`, que aún no se ha aprobado.
+
 ## Fase 2 — Voz completa y alarmas (después de F1)
 
 - Wake word continua con Vosk en hilo propio y consumo < 3 % CPU.
@@ -67,10 +90,15 @@ Estado: completa en local; falta la prueba en el teléfono.
 
 ## Fase 4 — Android y multi-dispositivo
 
-- HUD en el navegador del A16 contra el servidor de la PC en red local.
-- O núcleo en Termux con modelo pequeñísimo.
-- Token de acceso, descubrimiento local y reconexión.
-- Notificaciones y alarmas del teléfono (fase posterior).
+Lo de la fase 1.7 es el principio de ésta: el cliente de bolsillo ya existe y ya se
+compila firmado. Falta el teléfono delante.
+
+- [x] Token de acceso al HUD por red local (negado si falta, medido por HTTP).
+- [x] Cliente Android que abre ese HUD y recuerda la dirección.
+- [ ] HUD en el navegador del A16 contra el servidor de la PC en red local.
+- [ ] El núcleo en Termux con modelo pequeñísimo.
+- [ ] Descubrimiento local (anuncio del servicio) y reconexión automática.
+- [ ] Notificaciones y alarmas del teléfono (fase posterior).
 
 ## Fase 5 — Avatar Cortana (última, como pidió Sandra)
 
@@ -82,10 +110,15 @@ Estado: completa en local; falta la prueba en el teléfono.
 
 ## Fase 6 — Publicación
 
-- README con badges, índice, capturas y guía de instalación.
-- Licencia y créditos (Sandra y Askher).
-- Etiqueta `v0.1.0` solo cuando la fase 1 pase entera.
-- Conservar las ramas actuales como respaldo hasta que Sandra decida lo contrario.
+El grueso se hizo en la fase 1.7; lo que queda es de acabado.
+
+- [x] Repo público, `main` como única rama, y CI que corre las pruebas antes del APK.
+- [x] Etiqueta `v3.0.0` con el APK firmado y sus dos archivos de evidencia.
+- [ ] README con badges, índice y capturas nuevas (la guía de instalación ya está).
+- [ ] Licencia y créditos (Sandra y Askher).
+- [ ] Borrar el repo viejo y renombrar `CORT-nuevo` ▸ `CORT`, cuando Sandra apruebe el
+      alcance `delete_repo`. Las ramas de respaldo del repo viejo ya no existen: se
+      archivaron en el bundle y en el JSON de releases.
 
 ## Riesgos abiertos
 
@@ -96,4 +129,4 @@ Estado: completa en local; falta la prueba en el teléfono.
 | Vosk no instalado | Modo texto por defecto; instalación guiada. |
 | Falta de `ffmpeg` | Referencias extraídas con VLC/GStreamer; no bloquea el código. |
 | Cuota de copilotos | Estado en archivos (`docs/`), no en el chat. |
-| Publicación accidental | Nada de GitHub en F1; `gh` sin sesión. |
+| Publicación accidental | Ya no aplica: el repo es público a propósito desde 2026-10-29. La llave del APK sigue fuera del repo (`keystore/`, `*.jks` y `pass.txt` en `.gitignore`), y el HUD no sale del bucle sin token. |

@@ -75,6 +75,8 @@ de octubre de 2026**:
 | VLC real | reproducción de un WAV con `cvlc`, pausa con SIGSTOP y reanudación con SIGCONT |
 | Apps reales | apertura de `galculator` desde la allowlist y cierre posterior |
 | Diagnóstico | `scripts/install.sh` y `python3 -m cort --doctor` |
+| CI y publicación | en GitHub Actions, no en este portátil: el job `pruebas` deja las 158 verdes y corre `--once`; sólo después el job `apk` compila, firma y publica |
+| APK de bolsillo | `CORT-IA-3.0.0-bolsillo.apk` (193.773 bytes) en la Release `v3.0.0`, con `package='com.cort.ia'`, `versionCode 30000`, 4 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
 
 Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
 
@@ -88,6 +90,10 @@ Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
   instalación PWA y el micrófono dentro del navegador del móvil. Sin HTTPS, el navegador puede
   limitar «Agregar a inicio».
 - Gestos con cámara: planificados, no implementados.
+- El APK en la mano: está compilado, firmado y publicado, pero **nadie lo ha instalado todavía**
+  encima del 2.11.0 en el A16, y el micrófono dentro del `WebView` tampoco se ha escuchado. La
+  teoría (mismo paquete, misma llave, `versionCode` más alto) está medida en los archivos; la
+  instalación real, no.
 - Ventana nativa: falta `pywebview`; el HUD se abre en el navegador.
 - `playerctl`: no está instalado; pausa, reanudación y cambio de pista usan señales y el estado
   guardado por CORT, lo que funciona con VLC pero no da posición exacta.
@@ -209,12 +215,20 @@ no instala nada:
    pantalla completa. Probado en el navegador de escritorio; **en su A16 todavía no se instaló**,
    así que lo anotamos como pendiente.
 2. **APK de bolsillo (`apps/bolsillo/`).** Un WebView que abre ese mismo enlace y recuerda la
-   dirección, con permiso de micrófono propio para que la escucha funcione dentro de la app. Se
-   instala encima de la CORT-IA anterior sin desinstalar ni perder datos, porque usa el paquete
-   `com.cort.ia` y la misma llave de firma (ver `apps/bolsillo/README.md`).
+   dirección, con permiso de micrófono propio para que la escucha funcione dentro de la app.
+   Ya está compilado y publicado: en [Releases ▸ latest](https://github.com/Sandra2244/CORT-nuevo/releases/latest)
+   está el `CORT-IA-<versión>-bolsillo.apk` con su `-firma.txt` y su `-auditoria.txt` al lado.
+   Se instala encima de la CORT-IA anterior sin desinstalar ni perder datos — paquete
+   `com.cort.ia`, la misma llave (huella `FA:AB:EF:46:…:A3:19:77`, medida con `keytool` sobre
+   los dos archivos) y un `versionCode` más alto que el 21100 del 2.11.0. Antes de aceptar
+   *Actualizar*, compará el renglón `llave sha256:` del `-firma.txt`: si no coincide, Android
+   va a pedir desinstalar.
 
 En los dos casos hace falta que el HUD esté abierto a la red con token: sin `--token`, CORT no
-levanta el HUD fuera de `127.0.0.1` y lo dice en vez de exponer la PC al wifi.
+levanta el HUD fuera de `127.0.0.1` y lo dice en vez de exponer la PC al wifi. Y en los dos
+queda la misma prueba pendiente, que sólo se hace con el teléfono en la mano: que la app entre
+encima del 2.11.0 sin perder la dirección, y que el micrófono escuche dentro del `WebView`
+en Android 16.
 
 ## Comandos
 
@@ -251,7 +265,7 @@ Las palabras de activación son **CORT** y **Sofi**; se pueden cambiar en `confi
 
 ```text
 cort/
-├── __main__.py          CLI: --hud, --once, --doctor, --voz, --puerto…
+├── __main__.py          CLI: --hud, --once, --doctor, --voz, --puerto, --host, --token
 ├── app.py               orquestador: router → herramienta → memoria → bus → voz
 ├── router.py            intenciones deterministas en español
 ├── text.py              normalización, horas, fechas y similitud
@@ -266,8 +280,20 @@ cort/
 │                        apuntes y memoria
 ├── voice/               espeak-ng (TTS) y Vosk + arecord (STT)
 └── hud/
-    ├── server.py        HTTP local y API
+    ├── server.py        HTTP con llave por token y API
     └── static/          index.html, hud.css, hud.js (canvas 2D)
+
+apps/bolsillo/           el cliente Android (no es Python: se compila aparte)
+├── AndroidManifest.xml  paquete com.cort.ia, minSdk 26, 4 permisos
+├── src/com/cort/ia/     MainActivity.java: WebView + dirección guardada + micrófono
+├── res/mipmap-*/        iconos de launcher en 5 densidades
+├── llave.sh             de dónde sale la llave de firma (secretos ▸ caché ▸ ~/cort-llave.jks)
+├── compilar.sh          aapt2 ▸ javac ▸ d8 ▸ zip ▸ zipalign ▸ apksigner ▸ auditoría
+└── keystore/            EN `.gitignore`: aquí nunca se guarda la llave
+
+.github/workflows/
+└── apk.yml              un solo flujo: primero las 158 pruebas y `--once`,
+                         y sólo si salen verdes compila el APK firmado y publica la Release
 ```
 
 Flujo de una frase:

@@ -72,7 +72,7 @@ javac --release 11             → MainActivity.java contra android.jar
 d8 --release --min-api 26      → classes.dex
 zip -j                         → el dex dentro del APK
 zipalign -f 4                  → alineado (Android 11 lo exige)
-apksigner sign (v1+v2+v3)      → la llave de siempre
+apksigner sign --v1 --v2 --v3  → la llave de siempre
 ```
 
 Corre en GitHub Actions (`.github/workflows/apk.yml`), no en el portátil: ahí sí hay
@@ -98,13 +98,54 @@ La carpeta `keystore/`, los `*.jks` y `pass.txt` están en `.gitignore`. El repo
 público y con esa llave cualquiera podría firmar actualizaciones que su teléfono acepte
 como legítimas.
 
+## Lo que dicen los tres esquemas de firma
+
+`apksigner verify --verbose` del APK publicado (`build-tools 37.0.0`) deja:
+
+```text
+Verified using v1 scheme (JAR signing):                    false
+Verified using v2 scheme (APK Signature Scheme v2):        true
+Verified using v3 scheme (APK Signature Scheme v3):        true
+```
+
+y `-firma.txt` copia esas tres líneas tal cual. Que v1 salga `false` **no** significa que
+el bloque JAR no esté: el APK trae `META-INF/MANIFEST.MF`, `META-INF/CORT.SF` y
+`META-INF/CORT.RSA`, los 13 `SHA-256-Digest` del manifiesto coinciden con los archivos
+recalculados, y `keytool -printcert -jarfile` lee el firmante `CN=CORT` con huella
+`FA:AB:EF:46:…:A3:19:77` — la misma del `CORT-IA-2.11.0-nucleo.apk`. El `.SF` además
+declara `X-Android-APK-Signed: 2, 3`, que es la marca que `apksigner` pone cuando firma
+también con v2/v3.
+
+Por qué da igual para instalar: con `minSdkVersion` 26 (Android 8.0) cualquier equipo que
+acepte este APK entiende el esquema v2, y ése está verificado. Android valida la firma por
+v2 y ni mira el bloque JAR. Lo que **sí** importa para que se instale encima es que la llave
+sea la misma, y esa huella está medida en los dos APK, no supuesta.
+
+Un detalle de la auditoría publicada: `-auditoria.txt` de `v3.0.0` muestra
+`targetSdkVersion:'34'` pero **no** la línea del mínimo, porque el `grep` que arma ese archivo
+buscaba `sdkVersion` en minúsculas y `aapt2` la escribe como `minSdkVersion`. El mínimo sí está
+declarado en `AndroidManifest.xml` (`android:minSdkVersion="26"`) y en `compilar.sh`
+(`aapt2 link --min-sdk-version 26`, `d8 --min-api 26`); lo que faltaba era verlo impreso en la
+evidencia. El `grep` ya está corregido, así que desde el siguiente run el archivo lo reporta.
+
 ## Qué está probado y qué no
 
-Probado: la resolución de la llave contra `~/cort-llave.jks` (huella leída con
-`keytool`), el guion con `bash -n`, y el camino del HUD por red con token desde la PC
-(401 sin llave, 200 con ella, medido entrando por la IP de `wlan0`).
+Probado, con el archivo ya publicado en la Release `v3.0.0`:
 
-**No probado todavía**: que `javac`/`d8`/`aapt2` compilen este Java (no hay JDK ni SDK en
-el portátil: la primera compilación real es la de Actions), que el APK se instale encima
-del 2.11.0 en el teléfono, y que el micrófono del HUD funcione dentro del `WebView` en
-Android 16. Hasta ver el run verde, esto es código escrito, no software verificado.
+* GitHub Actions compila de verdad: `javac`, `d8`, `aapt2`, `zipalign` y `apksigner`
+  salieron verdes en el run `40875001609`, después de las 158 pruebas del job previo.
+* El APK resultante pesa 193.773 bytes y su sha256 está en `-firma.txt`
+  (`d68074ae…88d0bb`), con `package: name='com.cort.ia' versionCode='30000'
+  versionName='3.0.0'` leído con `aapt2 dump badging`.
+* La llave usada es la de siempre: `-firma.txt` dice `origen llave: el secreto
+  CORT_APK_KEYSTORE_B64 del repo` y la huella coincide con la del APK de referencia,
+  comprobada con `keytool` sobre los dos archivos.
+* Lo que mira Android 11+: 4 permisos justos, `resources.arsc` de 1544 bytes sin
+  comprimir y `zipalign -c 4` en verde (`-auditoria.txt`).
+* El camino del HUD por red con token desde la PC: 401 sin llave, 200 con ella, 401 con
+  llave falsa, medido entrando por la IP de `wlan0`, y también en el navegador.
+
+**No probado todavía**: que el APK se instale encima del 2.11.0 en el teléfono sin perder
+la dirección guardada, y que el micrófono del HUD funcione dentro del `WebView` en
+Android 16. Las dos se comprueban en cinco minutos con el móvil en la mano; hasta entonces
+esta sección es la única promesa que hay que leer.

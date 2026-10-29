@@ -1,0 +1,180 @@
+# CORT · dos puertas: primero las pruebas del núcleo, después el APK del teléfono.
+#
+# Por qué en Actions y no en el portátil: el equipo de Sandra es un Debian con 2
+# núcleos y 1,8 GiB de RAM —con Ollama abierto no da para más— y no tiene JDK ni SDK
+# de Android. El APK se compila en un runner que ya trae el SDK en
+# `/usr/local/lib/android/sdk`, con `aapt2` + `javac` + `d8` + `zipalign` +
+# `apksigner` y sin Gradle: el mismo método con el que está hecho el
+# `CORT-IA-2.11.0-nucleo.apk` que ella ya tiene instalado.
+#
+# La firma es la de siempre (`com.cort.ia` + la llave `FA:AB:EF:46:…:19:77`), así
+# que el APK nuevo se instala ENCIMA del viejo: no se desinstala, no se pierde la
+# dirección de la PC ni el permiso del micrófono. `apps/bolsillo/llave.sh` resuelve
+# la llave en este orden: secretos del repo ▸ caché del workflow ▸ `~/cort-llave.jks`
+# ▸ generar una nueva (y entonces lo avisa en `firma.txt`).
+#
+# Los logs de Actions dan 403 sin sesión, así que lo que importa sale anotado en el
+# check-run y pegado a la Release como `-firma.txt` y `-auditoria.txt`.
+name: APK de bolsillo
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión del APK (X.Y.Z)"
+        default: "3.0.0"
+        required: true
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  # -- La puerta: el núcleo tiene que estar verde antes de empaquetar nada ----
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencias
+        run: python3 -m pip install --quiet requests psutil
+      - name: Suite unittest
+        # Los logs de Actions dan 403 sin sesión; lo que hay que saber sale anotado
+        # en el check-run. `set +e` para poder leer el código antes de morir: con el
+        # `bash -e` de GitHub el paso se cortaría antes de la anotación.
+        run: |
+          set +e
+          python3 -m unittest discover -s tests > /tmp/pruebas.log 2>&1
+          st=$?
+          tail -c 4000 /tmp/pruebas.log
+          if [ $st -ne 0 ]; then
+            fallas="$(grep -E '^(FAIL|ERROR):' /tmp/pruebas.log | head -20 | tr '\n' ';')"
+            resumen="$(grep -E '^(FAILED|OK|Ran )' /tmp/pruebas.log | tr '\n' ' ')"
+            echo "::error::suite roja con $st — ${resumen:-sin resumen} — ${fallas:-(sin nombres)}"
+            exit $st
+          fi
+          echo "::notice::suite verde — $(grep -E '^Ran ' /tmp/pruebas.log | tr -d '\n')"
+      - name: Sin voz, sin Ollama, una sola frase
+        run: python3 -m cort --once "qué hora es" --sin-voz
+
+  # -- El APK ------------------------------------------------------------------
+  apk:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    env:
+      # IGUAL que el default de `apps/bolsillo/compilar.sh`. Si se separan, la
+      # Release anuncia un enlace que no es el archivo que sube.
+      APK_VERSION: "3.0.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cachear la llave de firma
+        # Red de seguridad por si algún día faltan los secretos: `llave.sh` guarda en
+        # esta carpeta la llave que generó la primera vez, así que la Release siguiente
+        # la encuentra y sigue firmando igual. La caché vive en el `ref` que la creó —
+        # una etiqueta nueva no ve la caché de otra etiqueta—, por eso el secreto del
+        # repo es la vía de verdad y esto sólo amortigua runs de una misma etiqueta.
+        uses: actions/cache@v4
+        with:
+          path: apps/bolsillo/keystore
+          key: cort-bolsillo-keystore-${{ github.ref }}
+
+      - name: Versión (la etiqueta manda)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "APK_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          elif [ -n "${{ inputs.version }}" ]; then
+            echo "APK_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Compilar el APK
+        shell: bash
+        env:
+          CORT_APK_KEYSTORE_B64: ${{ secrets.CORT_APK_KEYSTORE_B64 }}
+          CORT_APK_KEYSTORE_PASS: ${{ secrets.CORT_APK_KEYSTORE_PASS }}
+        run: |
+          # `set +e` es obligatorio: el shell de GitHub se comporta como `bash -e`
+          # y mataría el paso antes de `st=$?`, dejando el fallo sin anotación y por
+          # lo tanto invisible para quien no tenga sesión en GitHub.
+          set +e
+          chmod +x apps/bolsillo/compilar.sh
+          bash -x apps/bolsillo/compilar.sh "$APK_VERSION" > /tmp/apk.log 2>&1
+          st=$?
+          cat /tmp/apk.log
+          if [ $st -ne 0 ]; then
+            # `javac` imprime el error en una línea y el detalle (`symbol:`,
+            # `location:`, `required:`) en las siguientes: sin ellas hay que adivinar
+            # qué método no existe, y cada intento cuesta una compilación.
+            errores="$(grep -E -A 3 '\.java:[0-9]+: error:' /tmp/apk.log \
+                       | grep -E '\.java:[0-9]+: error:|symbol:|location:|required:|found:|reason:' \
+                       | head -40)"
+            auditoria="$(grep -E 'no conoce|sin ninguna firma|resources\.arsc|alineado|llave sha256|esquemas pedidos' /tmp/apk.log | tail -12)"
+            msg=$( { echo "-- errores --"; echo "${errores:-ninguno}"; \
+                     echo "-- detalles --"; echo "${auditoria:-la compilación no llegó al final}"; \
+                     echo "-- final del log --"; tail -c 900 /tmp/apk.log; } \
+                   | tr '\n\r' '  ' | sed 's/%/%25/g' )
+            echo "::error::compilar.sh salió con $st — $msg"
+            exit $st
+          fi
+
+      - name: Bautizar los archivos
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk
+          cd apps/bolsillo/build
+          cp "CORT-IA-${APK_VERSION}-bolsillo.apk" "$GITHUB_WORKSPACE/apk/"
+          cp "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" "$GITHUB_WORKSPACE/apk/"
+          cp "CORT-IA-${APK_VERSION}-bolsillo-auditoria.txt" "$GITHUB_WORKSPACE/apk/"
+          echo "-- lo que dice la firma de este APK --"
+          cat "CORT-IA-${APK_VERSION}-bolsillo-firma.txt"
+
+      - name: Subir el artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CORT-bolsillo-${{ env.APK_VERSION }}
+          path: apk/
+          if-no-files-found: error
+
+      - name: Publicar la Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v${APK_VERSION}"
+          cd "$GITHUB_WORKSPACE/apk"
+          SHA="$(sha256sum "CORT-IA-${APK_VERSION}-bolsillo.apk" | awk '{print $1}')"
+          HUELLA="$(grep -m1 'llave sha256' "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" | awk '{print $3}')"
+          CUERPO=$(cat <<EOF
+Cliente de bolsillo: una ventana al HUD que corre en la PC.
+
+* Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
+* Llave sha256 \`$HUELLA\` — la misma de siempre, así que se instala encima de la
+  anterior sin desinstalar y sin perder la dirección guardada ni el micrófono.
+* sha256 del archivo: \`$SHA\`
+* Uso: abrir CORT en la PC con \`python3 -m cort --hud --host 0.0.0.0 --token tu-llave\`
+  y escribir en la app el enlace que imprime («CORT · desde el teléfono: …?token=…»).
+
+**-firma.txt** trae la huella de la llave y el versionCode. **-auditoria.txt**, lo que
+Android 11+ y Play Protect miran del archivo: permisos declarados, \`resources.arsc\`
+sin comprimir y alineado de a 4.
+
+No probado todavía: la instalación real en el teléfono.
+EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" --clobber CORT-IA-*
+          else
+            gh release create "$TAG" CORT-IA-* --title "CORT · bolsillo $APK_VERSION" --notes "$CUERPO"
+          fi
+          gh release view "$TAG" --json tagName,assets --jq '.tagName, (.assets[].name)'

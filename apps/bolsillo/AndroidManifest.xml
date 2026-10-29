@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CORT · bolsillo. Un cliente ligero: abre el HUD que corre en la PC, en la red
+  local. No trae cerebro propio — el núcleo (Python, Ollama, memoria, voz) vive
+  en la PC y se elige por dirección.
+
+  Paquete `com.cort.ia` y firma con la llave de siempre a propósito: así la app
+  se instala ENCIMA de la anterior sin desinstalar y sin perder la dirección
+  guardada ni los permisos ya concedidos.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.cort.ia">
+
+    <!-- 26 es el suelo del APK núcleo de referencia: misma base, mismos esquemas
+         de firma, y `WebView` con permisos de tiempo de ejecución ya estables. -->
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- El micrófono lo pide el HUD por WebView; sin este permiso el navegador
+         interno no puede escuchar. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <application
+        android:label="CORT"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:hardwareAccelerated="true"
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

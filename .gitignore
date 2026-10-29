@@ -9,3 +9,14 @@ data/
 media.json
 .pytest_cache/
 .DS_Store
+
+# El APK de bolsillo: se compila en Actions, nunca se sube el binario.
+apps/bolsillo/build/
+apps/bolsillo/*.apk
+# La llave de firma. El repo es público: con este archivo cualquiera podría
+# firmar actualizaciones de su CORT y Android las aceptaría como legítimas.
+apps/bolsillo/keystore/
+*.jks
+*.keystore
+pass.txt
+cort-llave.*

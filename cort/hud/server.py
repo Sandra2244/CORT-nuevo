@@ -2,25 +2,94 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import mimetypes
 import shutil
+import socket
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 ESTATICOS = Path(__file__).parent / "static"
+
+# Direcciones que son "este equipo". Un HUD abierto en 0.0.0.0 sigue siendo
+# local para la PC: quien consulta desde 127.0.0.1 es el propio usuario.
+LOCALES = ("127.", "::1", "::ffff:127.")
+
+PAGINA_SIN_ACCESO = """<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CORT · falta el token</title>
+<style>
+body{{background:#04090f;color:#cfe9f5;font:14px/1.6 system-ui,sans-serif;
+margin:0;padding:36px 22px}}
+code{{background:#0b1a24;padding:2px 6px;border-radius:4px;color:#7fe7ff}}
+p{{max-width:42em}}
+</style></head><body>
+<h1>CORT está protegido</h1>
+<p>Este HUD está abierto a la red local, así que pide una llave. Copia el enlace
+completo que imprime CORT en la PC —lleva <code>?token=…</code>— y ábrelo aquí.</p>
+<p>En la PC: <code>python3 -m cort --hud --host 0.0.0.0 --token tu-llave</code></p>
+</body></html>
+"""
+
+
+def es_local(ip: str) -> bool:
+    """Si la conexión viene de esta misma máquina."""
+    return ip.startswith(LOCALES)
+
+
+def ruta_publica(ruta: str) -> bool:
+    """Lo que se sirve sin llave: la ropa de la página y el latido.
+
+    Sin CSS ni JS el HUD no puede ni pintarse el aviso de «falta el token», y
+    `/api/salud` no dice nada que un desconocido pueda usar. Lo que manda y lo
+    que responde exige el token.
+    """
+    return ruta.startswith("/static/") or ruta in ("/favicon.ico", "/api/salud")
 
 
 class _Handler(BaseHTTPRequestHandler):
     app = None
+    token = ""
     server_version = "CORT-HUD/0.1"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, formato, *args):  # noqa: A003
         return
+
+    # --- acceso ---------------------------------------------------------
+    def _autorizado(self) -> bool:
+        """Local siempre entra; desde la red sólo con el token del enlace."""
+        ip = self.client_address[0] if self.client_address else ""
+        if es_local(ip):
+            return True
+        if not self.token:
+            return False
+        dado = self.headers.get("X-CORT-Token", "")
+        if not dado:
+            dado = parse_qs(urlparse(self.path).query).get("token", [""])[0]
+        if not dado:
+            return False
+        # En bytes: `compare_digest` con `str` rechaza cualquier tilde, y un
+        # token con tildes es perfectamente escribible.
+        return hmac.compare_digest(str(dado).encode("utf-8"), str(self.token).encode("utf-8"))
+
+    def _sin_acceso(self) -> None:
+        ruta = urlparse(self.path).path
+        if ruta.startswith("/api/"):
+            self._json({"error": "falta el token del HUD"}, 401)
+            return
+        cuerpo = PAGINA_SIN_ACCESO.encode("utf-8")
+        self.send_response(401)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(cuerpo)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(cuerpo)
 
     # --- utilidades -----------------------------------------------------
     def _json(self, datos: dict, codigo: int = 200) -> None:
@@ -72,6 +141,11 @@ class _Handler(BaseHTTPRequestHandler):
     # --- GET ------------------------------------------------------------
     def do_GET(self):  # noqa: N802
         ruta = urlparse(self.path).path
+        # Los recursos de la página van sin llave: sin ellos el HUD no puede
+        # ni pintarse. Lo que manda y lo que responde sí exige el token.
+        if not ruta_publica(ruta) and not self._autorizado():
+            self._sin_acceso()
+            return
         if ruta in ("/", "/index.html"):
             self._archivo("index.html")
         elif ruta.startswith("/static/"):
@@ -93,6 +167,9 @@ class _Handler(BaseHTTPRequestHandler):
     # --- POST -----------------------------------------------------------
     def do_POST(self):  # noqa: N802
         ruta = urlparse(self.path).path
+        if not self._autorizado():
+            self._sin_acceso()
+            return
         datos = self._cuerpo()
         if ruta == "/api/chat":
             texto = str(datos.get("texto", "")).strip()
@@ -183,12 +260,46 @@ class Servidor:
         self.app = app
         self.host = host or str(app.cfg.get("hud.host", "127.0.0.1"))
         self.puerto = int(app.cfg.get("hud.puerto", 8765) if puerto is None else puerto)
+        self.token = str(app.cfg.get("hud.token", "") or "")
         self._httpd: ThreadingHTTPServer | None = None
         self._hilo: threading.Thread | None = None
         self.url = ""
+        self.url_red = ""
+
+    @staticmethod
+    def _es_bucle(direccion: str) -> bool:
+        return direccion in ("127.0.0.1", "localhost", "::1", "")
+
+    @staticmethod
+    def ip_de_red() -> str:
+        """IP con la que esta PC se ve desde la red. No manda ningún paquete."""
+        try:
+            zagu = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                zagu.connect(("8.8.8.8", 80))
+                return str(zagu.getsockname()[0])
+            finally:
+                zagu.close()
+        except OSError:
+            return ""
+
+    def url_para_red(self) -> str:
+        """El enlace que hay que escribir (o pegar) en el teléfono."""
+        direccion = self.ip_de_red() or (self.host if not self._es_bucle(self.host) else "")
+        if not direccion:
+            return ""
+        cola = f"?token={self.token}" if self.token else ""
+        return f"http://{direccion}:{self.puerto}/{cola}"
 
     def iniciar(self) -> str:
-        handler = type("HandlerCort", (_Handler,), {"app": self.app})
+        if not self._es_bucle(self.host) and not self.token:
+            raise RuntimeError(
+                "El HUD está apuntando a la red ("
+                f"{self.host}) sin `hud.token`: quedaría abierto a cualquiera "
+                "con el mismo wifi. Escribe un token en config/cort.toml o pasa "
+                "--token al arrancar."
+            )
+        handler = type("HandlerCort", (_Handler,), {"app": self.app, "token": self.token})
         ultimo_error = None
         for intento in range(10):
             try:
@@ -202,8 +313,14 @@ class Servidor:
         self._httpd.daemon_threads = True
         self._hilo = threading.Thread(target=self._httpd.serve_forever, daemon=True, name="cort-hud")
         self._hilo.start()
-        self.url = f"http://{self.host}:{self.puerto}/"
+        # `0.0.0.0` no es una dirección donde nadie pueda escribir un navegador:
+        # para la PC se muestra el bucle, y para el teléfono la IP real de la red.
+        anfitrion = "127.0.0.1" if self.host in ("0.0.0.0", "::", "") else self.host
+        self.url = f"http://{anfitrion}:{self.puerto}/"
+        self.url_red = "" if self._es_bucle(self.host) else self.url_para_red()
         self.app.bus.log(f"hud · {self.url}")
+        if self.url_red:
+            self.app.bus.log(f"hud en la red · {self.url_red}")
         return self.url
 
     def detener(self) -> None:

@@ -75,8 +75,19 @@ texto/voz ──► App.responder() ──► Router ──► herramienta ─�
 | POST | `/api/accion` | `{"accion": "silencio"\|"pausa"\|"reanudar"\|"detener"}`. |
 | GET | `/api/salud` | `{"ok": true, "version": "..."}`. |
 
-Solo escucha en `127.0.0.1`. Para abrirlo al móvil hay que cambiar `hud.host` a
-`0.0.0.0` **y** añadir un token; no es parte de esta entrega.
+Por defecto escucha sólo en `127.0.0.1`, así que ninguna llamada lleva llave. Para
+ver el HUD desde el móvil se arranca con `--host 0.0.0.0 --token tu-llave`; entonces
+`hud.server.Servidor` **se niega a levantar** si la interfaz no es el bucle y el token
+está vacío (quedaría abierto a cualquier wifi), e imprime el enlace ya montado:
+`CORT · desde el teléfono: http://192.168.1.19:8765/?token=tu-llave`.
+
+El filtro está en `_Handler._autorizado`: la conexión local (`127.*`, `::1`) siempre
+entra; desde la red se compara el token con `hmac.compare_digest` en bytes —llevado en
+la cabecera `X-CORT-Token` o en `?token=` de la URL— y no coincide si falta. La página
+`/` y toda la API piden llave, menos `ruta_publica`: los estáticos (`/static/*`,
+`/favicon.ico`) y `/api/salud`, porque sin CSS y JS el aviso de «falta el token» no se
+podría ni pintar. `hud.js` lee `?token=` una vez, lo guarda en `sessionStorage`, quita
+el parámetro de la barra con `history.replaceState` y añade la cabecera a cada `fetch`.
 
 ## 5. Estado y concurrencia
 

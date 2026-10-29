@@ -41,6 +41,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sin-voz", action="store_true", help="no habla en voz alta")
     parser.add_argument("--no-abrir", action="store_true", help="no abre ventana; solo imprime la URL")
     parser.add_argument("--puerto", type=int, help="puerto del HUD (por defecto 8765)")
+    parser.add_argument(
+        "--host",
+        help='interfaz del HUD; "0.0.0.0" para que se vea desde la red local (exige --token)',
+    )
+    parser.add_argument(
+        "--token", help="llave que pide el HUD a quien no esté en esta misma PC"
+    )
     parser.add_argument("--config", type=Path, help="ruta alternativa de cort.toml")
     parser.add_argument("--version", action="store_true", help="muestra la versión")
     args = parser.parse_args(argv)
@@ -48,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config.cargar(args.config)
     if args.puerto:
         cfg.set("hud.puerto", args.puerto)
+    if args.host:
+        cfg.set("hud.host", args.host)
+    if args.token:
+        cfg.set("hud.token", args.token)
     if args.no_abrir:
         cfg.set("hud.abrir", "ninguno")
 
@@ -72,8 +83,16 @@ def main(argv: list[str] | None = None) -> int:
             from .hud.server import Servidor, abrir_hud
 
             servidor = Servidor(app)
-            url = servidor.iniciar()
-            print(f"CORT · HUD en {url}  (Ctrl+C para salir)")
+            try:
+                url = servidor.iniciar()
+            except RuntimeError as exc:
+                print(f"CORT · {exc}")
+                return 2
+            print(f"CORT · HUD en {url}  (Ctrl+C para salir)", flush=True)
+            if servidor.url_red:
+                # El enlace del teléfono: hay que verlo de verdad, no quedarse en
+                # el búfer cuando la salida está redirigida (servicio, `| tee`).
+                print(f"CORT · desde el teléfono: {servidor.url_red}", flush=True)
             if args.voz and app.stt.disponible:
                 threading.Thread(
                     target=_bucle_voz, args=(app, parar_voz), daemon=True, name="cort-wake"

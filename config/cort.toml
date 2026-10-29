@@ -31,8 +31,13 @@ modelo_vosk = ""
 silencio_s = 1.0
 
 [hud]
+# 127.0.0.1 = sólo este equipo. 0.0.0.0 = toda la red local, y entonces hace
+# falta un `token` no vacío: sin él CORT se niega a arrancar el HUD.
 host = "127.0.0.1"
 puerto = 8765
+# Llave del HUD cuando se abre a la red. Guárdala en un gestor de contraseñas:
+# quien la tenga puede hablar con CORT desde su propio teléfono.
+token = ""
 # auto | webview | navegador | ninguno
 abrir = "auto"
 fps = 30

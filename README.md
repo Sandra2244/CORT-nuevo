@@ -56,14 +56,16 @@ Documentación de diseño: [PROMPT-MAESTRO](docs/PROMPT-MAESTRO.md),
 
 ## Estado verificado
 
-Comprobado en este equipo (Debian, Python 3.13.5, 2 núcleos, 1,8 GiB de RAM) el **28 de octubre de 2026**:
+Comprobado en este equipo (Debian, Python 3.13.5, 2 núcleos, 1,8 GiB de RAM) entre el **28 y el 29
+de octubre de 2026**:
 
 | Comprobación | Resultado |
 | --- | --- |
-| Suite de pruebas | **147 pruebas unittest en verde** |
-| CLI | `--version`, `--once`, `--doctor`, `--hud`, `--no-abrir` |
+| Suite de pruebas | **158 pruebas unittest en verde** |
+| CLI | `--version`, `--once`, `--doctor`, `--hud`, `--no-abrir`, `--puerto`, `--host`, `--token` |
 | HUD | reloj cinematográfico, orbe con 4 estilos, 9 estados, animación de ejecución, chat, rail de acciones, panel de capacidades, paleta de comandos, panel de modelos, arranque y diseño adaptable con PWA |
 | Modelos Ollama | listado real, selección persistida, recomendados, descarga con progreso y cancelación, y auto-selección al terminar |
+| HUD en la red local | arrancado con `--host 0.0.0.0 --token …`: 401 sin llave por página, API y `POST`; 200 con cabecera o `?token=`; estáticos y `/api/salud` abiertos; bucle local sin llave; rechazo honesto al intentar `0.0.0.0` sin token; medido entrando por la IP real de `wlan0` |
 | Descarga real | `gemma3:270m`, 278 MB en 66 s, con porcentaje agregado por capas y verificación SHA-256 |
 | Inferencia real | `qwen2.5:0.5b` respondió por CORT con el prompt compacto; tardó 269 s en este portátil |
 | Clima real | por IP y por ciudad, con `ip-api.com` + `open-meteo.com` |
@@ -81,8 +83,10 @@ Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
 - Modelos diminutos: `gemma3:270m` descarga bien, pero respondió incoherencias; por eso no está en
   las recomendaciones del panel.
 - Voz y palabra de activación: faltan el paquete `vosk` y el modelo en español.
-- HUD en el teléfono: la página se adapta y tiene manifest, pero no se probó la instalación PWA
-  en el A16 ni el acceso por red local. Sin HTTPS, el navegador puede limitar «Agregar a inicio».
+- HUD en el teléfono: el acceso por red local ya está medido desde este equipo (el portal de
+  `wlan0` responde a su propia IP), pero **falta abrirlo desde el A16 físico**, probar la
+  instalación PWA y el micrófono dentro del navegador del móvil. Sin HTTPS, el navegador puede
+  limitar «Agregar a inicio».
 - Gestos con cámara: planificados, no implementados.
 - Ventana nativa: falta `pywebview`; el HUD se abre en el navegador.
 - `playerctl`: no está instalado; pausa, reanudación y cambio de pista usan señales y el estado
@@ -191,7 +195,26 @@ comandos directos en lugar de inventar.
 - **Sin voz:** agregá `--sin-voz`.
 - **Sin abrir ventana:** agregá `--no-abrir`; imprime la URL para abrirla a mano.
 - **Otro puerto:** `--puerto 9000`.
+- **Desde el teléfono:** `./scripts/run.sh --hud --host 0.0.0.0 --token tu-llave`; imprimí el
+  enlace completo que sale (`http://192.168.1.19:8765/?token=…`) y abrilo en el móvil.
 - **Otra configuración:** `--config ruta/a/cort.toml`.
+
+## CORT en el teléfono
+
+El cerebro vive en la PC; el teléfono es una ventana a ese HUD. Hay dos caminos, y el primero
+no instala nada:
+
+1. **PWA (sin APK).** Con la PC y el teléfono en el mismo wifi, abrí el enlace del paso anterior
+   en Chrome del teléfono → menú → *«Añadir a pantalla principal»». Queda con su icono y entra a
+   pantalla completa. Probado en el navegador de escritorio; **en su A16 todavía no se instaló**,
+   así que lo anotamos como pendiente.
+2. **APK de bolsillo (`apps/bolsillo/`).** Un WebView que abre ese mismo enlace y recuerda la
+   dirección, con permiso de micrófono propio para que la escucha funcione dentro de la app. Se
+   instala encima de la CORT-IA anterior sin desinstalar ni perder datos, porque usa el paquete
+   `com.cort.ia` y la misma llave de firma (ver `apps/bolsillo/README.md`).
+
+En los dos casos hace falta que el HUD esté abierto a la red con token: sin `--token`, CORT no
+levanta el HUD fuera de `127.0.0.1` y lo dice en vez de exponer la PC al wifi.
 
 ## Comandos
 

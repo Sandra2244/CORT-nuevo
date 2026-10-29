@@ -184,5 +184,133 @@ class PruebasServidorHud(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 400)
 
 
+class _AppSinNada:
+    """Sustituto de `Cort` para probar el arranque del servidor sin núcleo."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+
+class PruebasLlaveDelHud(unittest.TestCase):
+    """Quién entra al HUD cuando está abierto a la red: decides por IP, no por fe."""
+
+    class _Llamada:
+        """Lo justo de un handler: dirección del cliente, cabeceras y ruta."""
+
+        def __init__(self, ip, token, headers=None, path="/api/estado"):
+            self.client_address = (ip, 43210)
+            self.token = token
+            self.headers = headers or {}
+            self.path = path
+
+    def _pasa(self, **datos):
+        from cort.hud.server import _Handler
+
+        return _Handler._autorizado(self._Llamada(**datos))
+
+    def test_la_pc_se_entra_sola(self):
+        self.assertTrue(self._pasa(ip="127.0.0.1", token=""))
+        self.assertTrue(self._pasa(ip="127.0.0.42", token=""))
+        self.assertTrue(self._pasa(ip="::1", token="llave"))
+
+    def test_la_red_sin_llave_configurada_no_entra(self):
+        self.assertFalse(self._pasa(ip="192.168.1.50", token=""))
+        self.assertFalse(self._pasa(ip="192.168.1.50", token="", path="/"))
+
+    def test_la_red_con_llave_entre_por_cabecera_o_por_enlace(self):
+        self.assertTrue(self._pasa(ip="192.168.1.50", token="abc123",
+                                   headers={"X-CORT-Token": "abc123"}))
+        self.assertTrue(self._pasa(ip="192.168.1.50", token="abc123",
+                                   path="/?token=abc123"))
+
+    def test_la_llave_equivocada_no_cuela(self):
+        self.assertFalse(self._pasa(ip="192.168.1.50", token="abc123",
+                                    headers={"X-CORT-Token": "abc1234"}))
+        self.assertFalse(self._pasa(ip="192.168.1.50", token="abc123",
+                                    headers={"X-CORT-Token": ""}, path="/?token="))
+        self.assertFalse(self._pasa(ip="192.168.1.50", token="",
+                                    headers={"X-CORT-Token": "cualquiera"}))
+
+    def test_llave_con_tilde_por_enlace(self):
+        # `compare_digest` con `str` revienta si hay tildes; aquí van en bytes.
+        self.assertTrue(self._pasa(ip="192.168.1.50", token="cañón",
+                                   path="/?token=ca%C3%B1%C3%B3n"))
+
+    def test_la_ropa_de_la_pagina_no_pide_llave(self):
+        from cort.hud.server import ruta_publica
+
+        for ruta in ("/static/hud.js", "/static/hud.css", "/favicon.ico", "/api/salud"):
+            self.assertTrue(ruta_publica(ruta), ruta)
+        for ruta in ("/", "/index.html", "/api/estado", "/api/chat", "/api/modelos"):
+            self.assertFalse(ruta_publica(ruta), ruta)
+
+    def test_sin_llave_no_se_abre_a_la_red(self):
+        from cort.hud.server import Servidor
+
+        cfg = config_de_prueba(Path(tempfile.mkdtemp()))
+        servidor = Servidor(_AppSinNada(cfg), host="0.0.0.0", puerto=0)
+        with self.assertRaises(RuntimeError) as ctx:
+            servidor.iniciar()
+        self.assertIn("token", str(ctx.exception))
+
+    def test_el_enlace_del_telefono_lleva_la_llave(self):
+        from cort.hud.server import Servidor
+
+        cfg = config_de_prueba(Path(tempfile.mkdtemp()), hud={"token": "llave123"})
+        servidor = Servidor(_AppSinNada(cfg), host="0.0.0.0", puerto=8765)
+        enlace = servidor.url_para_red()
+        if enlace:  # sin ruta a la red no hay IP que anunciar: no se inventa
+            self.assertTrue(enlace.endswith("?token=llave123"), enlace)
+            self.assertIn(":8765/", enlace)
+        else:
+            self.assertEqual(Servidor.ip_de_red(), "")
+
+
+@unittest.skipUnless(Servidor.ip_de_red(), "este equipo no tiene IP de red")
+class PruebasLlavePorHTTP(unittest.TestCase):
+    """La prueba de verdad: entrar desde la interfaz de la red, no desde el bucle."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.ip = Servidor.ip_de_red()
+        cls.cfg = config_de_prueba(Path(cls._tmp.name), hud={"token": "llave-prueba"})
+        cls.app = Cort(cls.cfg, voz=False)
+        cls.servidor = Servidor(cls.app, host=cls.ip, puerto=0)
+        cls.servidor.iniciar()
+        cls.base = f"http://{cls.ip}:{cls.servidor.puerto}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.servidor.detener()
+        cls.app.cerrar()
+        cls._tmp.cleanup()
+
+    def _codigo(self, ruta: str, cabeceras=None, datos=None) -> int:
+        req = urllib.request.Request(
+            self.base + ruta,
+            data=json.dumps(datos).encode("utf-8") if datos is not None else None,
+            headers=cabeceras or {},
+            method="POST" if datos is not None else "GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    def test_sin_llave_el_hud_y_la_api_no_abren(self):
+        self.assertEqual(self._codigo("/"), 401)
+        self.assertEqual(self._codigo("/api/estado"), 401)
+        self.assertEqual(self._codigo("/api/accion", datos={"accion": "silencio"}), 401)
+
+    def test_con_llave_entra_por_cabecera(self):
+        self.assertEqual(self._codigo("/api/estado", {"X-CORT-Token": "llave-prueba"}), 200)
+
+    def test_la_ropa_se_sirve_igual(self):
+        self.assertEqual(self._codigo("/static/hud.css"), 200)
+        self.assertEqual(self._codigo("/api/salud"), 200)
+
+
 if __name__ == "__main__":
     unittest.main()

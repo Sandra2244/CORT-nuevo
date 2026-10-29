@@ -8,6 +8,35 @@
   let CAPTURA = false;
   try { CAPTURA = new URLSearchParams(location.search).has("captura"); } catch (e) { /* sin URL */ }
 
+  // -- La llave del HUD en la red ------------------------------------------
+  // Cuando CORT se abre a la red local, el enlace que imprime en la PC lleva
+  // `?token=…`. Se lee una vez, se guarda en sessionStorage y se borra de la
+  // barra de direcciones, para que la llave no quede escrita en el historial del
+  // teléfono. Desde la propia PC el servidor no la pide, así que TOKEN vacío
+  // sigue siendo el caso normal.
+  let TOKEN = "";
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has("token")) {
+      TOKEN = q.get("token") || "";
+      if (TOKEN) sessionStorage.setItem("cort-token", TOKEN);
+      q.delete("token");
+      const resto = q.toString();
+      history.replaceState(null, "", location.pathname + (resto ? `?${resto}` : ""));
+    } else {
+      TOKEN = sessionStorage.getItem("cort-token") || "";
+    }
+  } catch (e) { /* sin URL ni sessionStorage: se entra sin llave */ }
+
+  // Único camino de salida hacia la API: añade la cabecera cuando hay llave.
+  async function api(url, opciones) {
+    const op = Object.assign({}, opciones || {});
+    const cabeceras = Object.assign({}, op.headers || {});
+    if (TOKEN && !cabeceras["X-CORT-Token"]) cabeceras["X-CORT-Token"] = TOKEN;
+    op.headers = cabeceras;
+    return fetch(url, op);
+  }
+
   const ESTADOS = {
     idle: ["en reposo", "núcleo local"],
     listening: ["escuchando", "micrófono"],
@@ -364,7 +393,7 @@
 
   async function pedirEstado() {
     try {
-      const r = await fetch("/api/estado", { cache: "no-store" });
+      const r = await api("/api/estado", { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       aplicarEstado(await r.json());
     } catch (e) {
@@ -394,7 +423,7 @@
     const ctrl = new AbortController();
     const temporizador = setTimeout(() => ctrl.abort(), 300000);
     try {
-      const r = await fetch("/api/chat", {
+      const r = await api("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto }),
@@ -439,7 +468,7 @@
 
   async function detenerTurno() {
     try {
-      await fetch("/api/accion", {
+      await api("/api/accion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accion: "detener" }),
@@ -461,7 +490,7 @@
     $("state-text").textContent = ESTADOS.listening[0];
     toast("Escuchando… hablá ahora", 5000);
     try {
-      const r = await fetch("/api/accion", {
+      const r = await api("/api/accion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accion: "escuchar" }),
@@ -480,7 +509,7 @@
   async function alternarSilencio() {
     ui.silencio = !ui.silencio;
     try {
-      await fetch("/api/accion", {
+      await api("/api/accion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accion: "silencio", activar: ui.silencio }),
@@ -597,7 +626,7 @@
     estado.textContent = "consultando Ollama…";
     cont.innerHTML = '<div class="modelos-vacio">buscando modelos instalados…</div>';
     try {
-      const r = await fetch("/api/modelos", { cache: "no-store" });
+      const r = await api("/api/modelos", { cache: "no-store" });
       const d = await r.json();
       ui.modelosLeidos = d;
       if (!d.ok) {
@@ -729,7 +758,7 @@
 
   async function elegirModelo(nombre) {
     try {
-      const r = await fetch("/api/modelos/seleccionar", {
+      const r = await api("/api/modelos/seleccionar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
@@ -769,7 +798,7 @@
     const boton = $("cancelar-descarga");
     boton.disabled = true;
     try {
-      const r = await fetch("/api/modelos/cancelar", {
+      const r = await api("/api/modelos/cancelar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}",
@@ -809,7 +838,7 @@
     mostrarEjecucion(`descargando ${nombre}`, "", true);
     const fallo = { texto: "" };
     try {
-      const r = await fetch("/api/modelos/descargar", {
+      const r = await api("/api/modelos/descargar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
@@ -947,7 +976,7 @@
     estado.classList.remove("error");
     estado.textContent = "consultando el registro de herramientas…";
     try {
-      const r = await fetch("/api/capacidades", { cache: "no-store" });
+      const r = await api("/api/capacidades", { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       if (!d.ok) throw new Error("el núcleo no devolvió capacidades");

@@ -37,6 +37,9 @@ DEFAULTS: dict[str, Any] = {
     "hud": {
         "host": "127.0.0.1",
         "puerto": 8765,
+        # Llave del HUD cuando se abre fuera de 127.0.0.1. Vacía = el HUD no
+        # levanta en una IP de red; ver `hud.server.Servidor.iniciar`.
+        "token": "",
         "abrir": "auto",  # auto | webview | navegador | ninguno
         "fps": 30,
         "particulas": "auto",  # auto | alto | medio | bajo

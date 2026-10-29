@@ -155,21 +155,23 @@ jobs:
           cd "$GITHUB_WORKSPACE/apk"
           SHA="$(sha256sum "CORT-IA-${APK_VERSION}-bolsillo.apk" | awk '{print $1}')"
           HUELLA="$(grep -m1 'llave sha256' "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" | awk '{print $3}')"
-          CUERPO=$(cat <<EOF
-Cliente de bolsillo: una ventana al HUD que corre en la PC.
+          CUERPO=$(cat <<EOF | sed 's/^          //'
+          Cliente de bolsillo: una ventana al HUD que corre en la PC.
 
-* Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
-* Llave sha256 \`$HUELLA\` — la misma de siempre, así que se instala encima de la
-  anterior sin desinstalar y sin perder la dirección guardada ni el micrófono.
-* sha256 del archivo: \`$SHA\`
-* Uso: abrir CORT en la PC con \`python3 -m cort --hud --host 0.0.0.0 --token tu-llave\`
-  y escribir en la app el enlace que imprime («CORT · desde el teléfono: …?token=…»).
+          * Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
+          * Llave sha256 \`$HUELLA\` — la misma de siempre, así que se instala encima
+            de la anterior sin desinstalar y sin perder la dirección guardada ni el
+            micrófono.
+          * sha256 del archivo: \`$SHA\`
+          * Uso: abrir CORT en la PC con
+            \`python3 -m cort --hud --host 0.0.0.0 --token tu-llave\` y escribir en la
+            app el enlace que imprime («CORT · desde el teléfono: …?token=…»).
 
-**-firma.txt** trae la huella de la llave y el versionCode. **-auditoria.txt**, lo que
-Android 11+ y Play Protect miran del archivo: permisos declarados, \`resources.arsc\`
-sin comprimir y alineado de a 4.
+          **-firma.txt** trae la huella de la llave y el versionCode.
+          **-auditoria.txt**, lo que Android 11+ y Play Protect miran del archivo:
+          permisos declarados, \`resources.arsc\` sin comprimir y alineado de a 4.
 
-No probado todavía: la instalación real en el teléfono.
+          No probado todavía: la instalación real en el teléfono.
 EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then

@@ -1,0 +1,68 @@
+# Configuración de CORT
+# Todo lo que no esté aquí usa los valores por defecto de cort/config.py.
+
+[nombre]
+wake = ["cort", "sofi"]
+usuario = ""
+
+[cerebro]
+url = "http://127.0.0.1:11434"
+modelo = "qwen3:0.6b"
+respaldo = "qwen2.5:0.5b"
+modelo_profundo = "qwen3.5:2b"
+temperatura = 0.6
+num_ctx = 4096
+num_predict = 256
+timeout_s = 240
+mantener = "5m"
+# Hilo de conversación que se reenvía al modelo (además de los hechos y apuntes).
+historial_mensajes = 8
+historial_caracteres = 2400
+
+[voz]
+tts = true
+motor = "espeak-ng"
+voz = "es-mx+f3"
+velocidad = 165
+tono = 52
+stt = true
+# Dejalo vacío para usar ~/.local/share/cort/vosk-es
+modelo_vosk = ""
+silencio_s = 1.0
+
+[hud]
+host = "127.0.0.1"
+puerto = 8765
+# auto | webview | navegador | ninguno
+abrir = "auto"
+fps = 30
+particulas = "auto"
+
+[sistema]
+avisos = true
+cpu_max = 85
+ram_max = 90
+
+[clima]
+cache_min = 10
+ciudad = ""
+
+[arnes]
+auto = false
+max_pasos = 3
+
+[apps]
+calculadora = "galculator"
+archivos = "thunar $HOME"
+navegador = "xdg-open https://www.google.com"
+editor = "featherpad"
+terminal = "x-terminal-emulator"
+vscodium = "codium"
+geany = "geany"
+vlc = "vlc"
+musica = "cvlc --intf dummy --play-and-exit $HOME/Música"
+
+[rutas]
+datos = "~/.local/share/cort"
+conocimiento = "knowledge"
+playlists = "~/Música"

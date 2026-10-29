@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#02060a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="CORT" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>CORT</title>
+<link rel="manifest" href="/static/manifest.webmanifest" />
+<link rel="icon" href="/static/icons/icon-192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
+<link rel="stylesheet" href="/static/hud.css" />
+</head>
+<body data-state="idle" data-orb="esfera">
+  <canvas id="orb" aria-hidden="true"></canvas>
+  <div class="grid-layer" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">CORT</div>
+      <div class="brand-sub">asistente local · v<span id="version">–</span></div>
+    </div>
+
+    <div class="clock" aria-live="off">
+      <div class="clock-frame">
+        <span class="clock-tag" aria-hidden="true">CORT</span>
+        <div class="clock-time" id="hora" role="timer" aria-label="hora local"></div>
+        <span class="clock-label" aria-hidden="true">local</span>
+      </div>
+      <div class="clock-date" id="fecha">cargando…</div>
+    </div>
+
+    <div class="top-right">
+      <button type="button" class="model-chip" id="abrir-modelos" title="Modelos de Ollama" aria-haspopup="dialog">
+        <span class="model-led" id="ia-led"></span>
+        <span class="model-label">IA</span>
+        <b id="w-ia">–</b>
+        <span class="chev">▾</span>
+      </button>
+      <button type="button" class="ghost-btn" id="abrir-capacidades" title="Capacidades (C)" aria-label="Capacidades" aria-haspopup="dialog">◈</button>
+      <button type="button" class="ghost-btn" id="abrir-paleta" title="Comandos (Ctrl+K)" aria-label="Comandos" aria-haspopup="dialog">⌘</button>
+      <button type="button" class="ghost-btn" id="enfoque" title="Modo enfoque (F)" aria-label="Modo enfoque">◱</button>
+      <div class="widgets">
+        <div class="widget"><span>CPU</span><b id="w-cpu">–</b></div>
+        <div class="widget"><span>RAM</span><b id="w-ram">–</b></div>
+        <div class="widget"><span>MIC</span><b id="w-mic">–</b></div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="terminal" aria-live="polite">
+    <div class="panel-title">registro del sistema</div>
+    <div class="terminal-lines" id="log"></div>
+  </aside>
+
+  <aside class="metrics">
+    <div class="panel-title">telemetría</div>
+    <div class="metric">
+      <label for="bar-cpu">CPU</label>
+      <div class="bar"><i id="bar-cpu"></i></div>
+      <span id="m-cpu">0 %</span>
+    </div>
+    <div class="metric">
+      <label for="bar-ram">RAM</label>
+      <div class="bar"><i id="bar-ram"></i></div>
+      <span id="m-ram">0 %</span>
+    </div>
+    <div class="metric-detalle" id="m-detalle">–</div>
+    <div class="alarma" id="alarma">sin alarmas</div>
+    <div class="panel-title traza-titulo">actividad del agente</div>
+    <div class="traza" id="traza" aria-live="polite">
+      <div class="traza-vacia">sin acciones todavía</div>
+    </div>
+  </aside>
+
+  <nav class="rail" id="rail" aria-label="Acciones rápidas">
+    <button type="button" class="rail-btn" id="rail-hablar" title="Hablar ahora">
+      <b>◎</b><span>hablar</span>
+    </button>
+    <button type="button" class="rail-btn peligro" id="rail-stop" title="Detener el turno" hidden>
+      <b>■</b><span>detener</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-modelos" title="Modelos de Ollama">
+      <b>▤</b><span>modelos</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-capacidades" title="Capacidades reales">
+      <b>◈</b><span>capacidades</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-comandos" title="Paleta de comandos">
+      <b>⌘</b><span>comandos</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-enfoque" title="Modo enfoque">
+      <b>◱</b><span>enfoque</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-silencio" title="Silenciar la voz">
+      <b>♪</b><span>voz</span>
+    </button>
+    <button type="button" class="rail-btn" id="rail-pantalla" title="Pantalla completa">
+      <b>⤢</b><span>pantalla</span>
+    </button>
+  </nav>
+
+  <div class="stage">
+    <div class="state-pill" id="state-pill">
+      <span class="dot"></span>
+      <span id="state-text">en reposo</span>
+      <span class="state-era" id="state-era">núcleo local</span>
+    </div>
+
+    <div class="ejecucion" id="ejecucion" aria-live="polite">
+      <div class="ejecucion-head">
+        <span class="ejecucion-icon" id="ejecucion-icon">◇</span>
+        <span id="ejecucion-tool">preparando</span>
+        <span class="ejecucion-ms" id="ejecucion-ms"></span>
+      </div>
+      <div class="ejecucion-barra"><i id="ejecucion-barra"></i></div>
+    </div>
+
+    <div class="parcial" id="parcial" aria-live="polite" hidden></div>
+
+    <div class="orb-styles" id="orb-styles" role="group" aria-label="Estilo del orbe">
+      <button type="button" data-estilo="esfera" class="activo">esfera</button>
+      <button type="button" data-estilo="anillo">anillo</button>
+      <button type="button" data-estilo="cinta">cinta</button>
+      <button type="button" data-estilo="enjambre">enjambre</button>
+    </div>
+  </div>
+
+  <section class="chat" id="chat">
+    <div class="chat-head">
+      <span class="chat-title">canal CORT</span>
+      <span class="chat-model" id="chat-model">modelo local</span>
+      <button type="button" class="stop-btn" id="stop" hidden>STOP</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="quick" id="quick">
+      <button type="button" data-texto="¿qué hora es?">hora</button>
+      <button type="button" data-texto="clima">clima</button>
+      <button type="button" data-texto="cómo está la PC">sistema</button>
+      <button type="button" data-modelos="1">modelos</button>
+      <button type="button" data-texto="ayuda">ayuda</button>
+    </div>
+    <form class="composer" id="form" autocomplete="off">
+      <button type="button" class="icon-btn" id="mic" title="Hablar ahora" aria-label="Hablar ahora">◎</button>
+      <input id="texto" name="texto" placeholder="Habla o escribe…" maxlength="600" autocomplete="off" spellcheck="false" />
+      <button type="button" class="icon-btn" id="mute" title="Silenciar la voz" aria-label="Silenciar la voz">♪</button>
+      <button type="submit" class="send" title="Enviar" aria-label="Enviar">→</button>
+    </form>
+    <div class="hint">C · Cognitiva &nbsp; O · Omnipresente &nbsp; R · Rapsodia &nbsp; T · Terminal</div>
+  </section>
+
+  <section class="modelos" id="modelos" role="dialog" aria-modal="false" aria-labelledby="modelos-titulo" hidden>
+    <div class="modelos-head">
+      <div>
+        <div class="modelos-eyebrow">ollama · memoria local</div>
+        <h2 id="modelos-titulo">modelos</h2>
+      </div>
+      <button type="button" class="ghost-btn" id="cerrar-modelos" aria-label="Cerrar panel">✕</button>
+    </div>
+    <div class="modelos-estado" id="modelos-estado">consultando…</div>
+    <div class="descarga" id="descarga" hidden>
+      <div class="descarga-cabecera">
+        <span class="descarga-texto" id="descarga-texto">esperando…</span>
+        <button type="button" class="cancelar-btn" id="cancelar-descarga">cancelar</button>
+      </div>
+      <div class="bar"><i id="bar-descarga"></i></div>
+      <div class="descarga-stats" id="descarga-stats"></div>
+    </div>
+    <div class="modelos-lista" id="modelos-lista"></div>
+    <form class="modelos-form" id="form-modelo" autocomplete="off">
+      <input id="modelo-nombre" placeholder="qwen3:0.6b" maxlength="100" spellcheck="false" />
+      <button type="submit" id="descargar-btn">Descargar</button>
+    </form>
+    <div class="sugerencias" id="recomendados" aria-label="Modelos recomendados">
+      <span class="sugerencias-vacio">cargando recomendados…</span>
+    </div>
+    <p class="nota">Ollama debe responder en <code>127.0.0.1:11434</code>. Si cerrás este panel la descarga continúa; podés cancelarla o reabrir el panel para ver el avance. Los tamaños son aproximados.</p>
+  </section>
+
+  <section class="capacidades" id="capacidades" role="dialog" aria-modal="false" aria-labelledby="capacidades-titulo" hidden>
+    <div class="cap-head">
+      <div>
+        <div class="cap-eyebrow">cerebro local · herramientas reales</div>
+        <h2 id="capacidades-titulo">capacidades</h2>
+      </div>
+      <button type="button" class="ghost-btn" id="cerrar-capacidades" aria-label="Cerrar panel">✕</button>
+    </div>
+    <input type="search" id="cap-buscar" class="cap-buscar" placeholder="filtrar por nombre, acción o ejemplo…" autocomplete="off" spellcheck="false" />
+    <div class="cap-estado" id="cap-estado">consultando el registro…</div>
+    <div class="cap-lista" id="cap-lista"></div>
+    <p class="nota">Tocar un ejemplo lo carga en el compositor; no se envía solo. Todo se ejecuta en esta máquina y sólo con herramientas de la lista permitida.</p>
+  </section>
+
+  <div class="paleta" id="paleta" role="dialog" aria-modal="true" aria-labelledby="paleta-titulo" hidden>
+    <div class="paleta-caja">
+      <div class="paleta-head">
+        <span id="paleta-titulo">paleta de comandos</span>
+        <kbd>esc</kbd>
+      </div>
+      <input type="search" id="paleta-buscar" placeholder="escribí una acción o una frase…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="paleta-lista" />
+      <div class="paleta-lista" id="paleta-lista" role="listbox" aria-label="Comandos"></div>
+      <div class="paleta-pie">
+        <span><kbd>↑</kbd><kbd>↓</kbd> mover</span>
+        <span><kbd>↵</kbd> ejecutar</span>
+        <span><kbd>ctrl</kbd>+<kbd>k</kbd> abrir</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="boot" id="boot" aria-hidden="true">
+    <div class="boot-logo">CORT</div>
+    <div class="boot-sub">cognitiva · omnipresente · rapsodia · terminal</div>
+    <div class="boot-lineas" id="boot-lineas"></div>
+    <div class="boot-skip">tocá o presioná una tecla para saltar</div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="/static/hud.js"></script>
+</body>
+</html>

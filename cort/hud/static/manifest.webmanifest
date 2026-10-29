@@ -1,0 +1,26 @@
+{
+  "name": "CORT · asistente local",
+  "short_name": "CORT",
+  "description": "HUD local para CORT: orbe, voz y herramientas en esta máquina.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#02060a",
+  "theme_color": "#02060a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

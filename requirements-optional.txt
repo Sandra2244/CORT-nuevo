@@ -1,0 +1,11 @@
+# Dependencias opcionales de CORT (la fase 1 funciona sin ellas)
+#
+# vosk        → reconocimiento de voz offline en español
+# pywebview   → ventana nativa para el HUD (si no está, se usa el navegador)
+#
+# Instalación sugerida, dentro de un entorno virtual para no tocar el sistema:
+#   python3 -m venv --system-site-packages .venv
+#   . .venv/bin/activate
+#   pip install vosk pywebview
+vosk
+pywebview

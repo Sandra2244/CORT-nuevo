@@ -112,7 +112,7 @@ teléfono, a la vista y sin Gradle:
 ```text
 aapt2 compile --dir res        → los iconos
 aapt2 link --manifest …        → recursos + manifiesto + versionCode
-aapt2 dump xmltree             → comprueba que «Leer con CORT» quedó DENTRO
+python3 (lectura del AXML)     → comprueba que «Leer con CORT» quedó DENTRO
 javac --release 11             → todo src/**/*.java contra android.jar
 d8 --release --min-api 26      → classes.dex
 zip -j                         → el dex dentro del APK
@@ -120,10 +120,12 @@ zipalign -f 4                  → alineado (Android 11 lo exige)
 apksigner sign --v1 --v2 --v3  → la llave de siempre
 ```
 
-La comprobación con `aapt2 dump xmltree` falla el run si faltara `LeerActivity`,
-`LectorService`, el filtro `PROCESS_TEXT` o el atributo `foregroundServiceType`: un
-manifiesto mal escrito que igual compila se descubriría en el teléfono como «no aparece en
-el menú».
+La comprobación lee el `AndroidManifest.xml` binario que quedó dentro del APK y busca en
+su tabla de cadenas `LeerActivity`, `LectorService`, `android.intent.action.PROCESS_TEXT` y
+`foregroundServiceType`; si falta uno, el run se pone rojo. Se hace así porque
+`aapt2 dump xmltree` cambió de sintaxis entre versiones de build-tools (en la 37 exige
+`--file`, y con `--file AndroidManifest.xml` devolvía vacío): leer los bytes del APK no
+depende de la versión de la herramienta.
 
 Corre en GitHub Actions (`.github/workflows/apk.yml`), no en el portátil: ahí sí hay
 JDK y SDK (`ANDROID_HOME`), y el equipo local tiene 2 núcleos y 1,8 GiB de RAM.

@@ -22,7 +22,7 @@ on:
     inputs:
       version:
         description: "Versión del APK (X.Y.Z)"
-        default: "3.1.1"
+        default: "3.1.2"
         required: true
   push:
     tags: ["v*.*.*"]
@@ -67,7 +67,7 @@ jobs:
     env:
       # IGUAL que el default de `apps/bolsillo/compilar.sh`. Si se separan, la
       # Release anuncia un enlace que no es el archivo que sube.
-      APK_VERSION: "3.1.1"
+      APK_VERSION: "3.1.2"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

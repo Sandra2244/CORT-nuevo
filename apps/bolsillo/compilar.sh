@@ -9,7 +9,7 @@
 # Corre en el pipeline de GitHub Actions (`ANDROID_HOME` ya viene puesto ahí). En
 # el portátil de Sandra no hay JDK ni SDK: aquí falla con ese mensaje, no a medias.
 #
-#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.1.1
+#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.1.2
 #
 # `versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: 3.1.0 → 30100,
 # que queda por delante del 2.11.0 (21100) instalado en el teléfono. Con la misma
@@ -20,7 +20,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$AQUI"
 
-VERSION="${1:-${APK_VERSION:-3.1.1}}"
+VERSION="${1:-${APK_VERSION:-3.1.2}}"
 PAQUETE="com.cort.ia"
 NOMBRE_APK="CORT-IA-${VERSION}-bolsillo.apk"
 
@@ -73,21 +73,37 @@ mkdir -p build/obj build/apk
 # El manifiesto se puede escribir bien y aun así no llegar al APK (un `aapt2 link`
 # que se lleva el viejo, un filtro con la categoría mal puesta). Sin esta prueba el
 # fallo aparecería en el teléfono como «Leer con CORT no está en el menú».
-# El valor de `foregroundServiceType` sale en hexadecimal en el volcado (mediaPlayback
-# es 0x2), así que aquí se comprueba el atributo; la auditoría imprime la línea con su
-# valor para que se pueda leer.
-# `dump xmltree` sin `--file` vuelca el manifiesto; con `--file` busca dentro de
-# `resources.arsc` y el manifiesto no está ahí, así que devolvía un archivo vacío.
-"$BT/aapt2" dump xmltree build/apk/sin-alinear.apk > build/componentes.txt
-# Se buscan los nombres cortos a propósito: el volcado no siempre escribe el paquete
-# completo (`com.cort.ia.LeerActivity` sale como `.LeerActivity` según la versión).
-for pieza in LeerActivity LectorService PROCESS_TEXT foregroundServiceType; do
-    if ! grep -q "$pieza" build/componentes.txt; then
-        echo "falta $pieza en el manifiesto compilado; esto es lo que sí trae:" >&2
-        cat build/componentes.txt >&2
-        exit 1
-    fi
-done
+#
+# Se lee el `AndroidManifest.xml` binario que quedó DENTRO del APK y se buscan los
+# nombres en su tabla de cadenas (`aapt2 dump xmltree` cambió de sintaxis entre
+# build-tools y devolvía vacío; esto no depende de la versión).
+python3 - build/apk/sin-alinear.apk <<'PY'
+import sys, zipfile
+
+piezas = ["LeerActivity", "LectorService",
+          "android.intent.action.PROCESS_TEXT", "foregroundServiceType"]
+with zipfile.ZipFile(sys.argv[1]) as apk:
+    manifiesto = apk.read("AndroidManifest.xml")
+
+# La tabla de cadenas de AXML puede ir en UTF-8 o en UTF-16: se acepta cualquiera.
+lineas, falta = [], []
+for pieza in piezas:
+    if pieza.encode("utf-8") in manifiesto:
+        lineas.append(f"{pieza}: presente (utf-8)")
+    elif pieza.encode("utf-16-le") in manifiesto:
+        lineas.append(f"{pieza}: presente (utf-16)")
+    else:
+        lineas.append(f"{pieza}: FALTA")
+        falta.append(pieza)
+
+texto = "\n".join(lineas) + "\n"
+with open("build/componentes.txt", "w", encoding="utf-8") as salida:
+    salida.write(texto)
+if falta:
+    print(texto, end="", file=sys.stderr)
+    sys.exit(1)
+print(texto, end="")
+PY
 
 # -- El Java -----------------------------------------------------------------
 # `--release 11` con `android.jar` en el classpath: es la única prueba que existe
@@ -170,10 +186,8 @@ EOF
     "$BT/aapt2" dump badging build/"$NOMBRE_APK" 2>/dev/null \
         | grep -E "^package|versionCode|versionName|^sdkVersion|^minSdkVersion|^targetSdkVersion|uses-permission|^application-label"
     echo
-    echo "== componentes del lector =="
-    grep -E 'LeerActivity|LectorService|PROCESS_TEXT|android.intent.action.SEND' \
-        build/componentes.txt || echo "(no aparecen)"
-    grep 'foregroundServiceType' build/componentes.txt || true
+    echo "== componentes del lector (dentro del APK) =="
+    cat build/componentes.txt 2>/dev/null || echo "(no se generó)"
     echo
     echo "== resources.arsc (Android 11 exige: sin comprimir y alineado a 4) =="
     python3 - "build/$NOMBRE_APK" <<'PY'

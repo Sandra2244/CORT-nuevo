@@ -22,7 +22,7 @@ on:
     inputs:
       version:
         description: "Versión del APK (X.Y.Z)"
-        default: "3.0.0"
+        default: "3.1.0"
         required: true
   push:
     tags: ["v*.*.*"]
@@ -67,7 +67,7 @@ jobs:
     env:
       # IGUAL que el default de `apps/bolsillo/compilar.sh`. Si se separan, la
       # Release anuncia un enlace que no es el archivo que sube.
-      APK_VERSION: "3.0.0"
+      APK_VERSION: "3.1.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -156,22 +156,32 @@ jobs:
           SHA="$(sha256sum "CORT-IA-${APK_VERSION}-bolsillo.apk" | awk '{print $1}')"
           HUELLA="$(grep -m1 'llave sha256' "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" | awk '{print $3}')"
           CUERPO=$(cat <<EOF
-          Cliente de bolsillo: una ventana al HUD que corre en la PC.
+          Cliente de bolsillo: una ventana al HUD que corre en la PC, y desde 3.1.0
+          también un lector en voz alta que funciona sin la PC.
 
           * Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
           * Llave sha256 \`$HUELLA\` — la misma de siempre, así que se instala encima
             de la anterior sin desinstalar y sin perder la dirección guardada ni el
             micrófono.
           * sha256 del archivo: \`$SHA\`
-          * Uso: abrir CORT en la PC con
+          * HUD: abrir CORT en la PC con
             \`python3 -m cort --hud --host 0.0.0.0 --token tu-llave\` y escribir en la
             app el enlace que imprime («CORT · desde el teléfono: …?token=…»).
+          * **Leer con CORT**: seleccionar un párrafo en cualquier app ▸ menú de
+            selección ▸ «Leer con CORT». Sigue con la pantalla apagada, se pausa y se
+            salta de frase desde la notificación o los audífonos, y retoma donde iba si
+            se vuelve a pedir el mismo texto.
 
           **-firma.txt** trae la huella de la llave y el versionCode.
           **-auditoria.txt**, lo que Android 11+ y Play Protect miran del archivo:
-          permisos declarados, \`resources.arsc\` sin comprimir y alineado de a 4.
+          permisos declarados, componentes del lector, \`resources.arsc\` sin comprimir y
+          alineado de a 4.
 
-          No probado todavía: la instalación real en el teléfono.
+          Voz: la del propio teléfono en español (\`es_ES\`, con \`es_MX\` de reserva). El
+          motor Piper llega en un paso posterior, cuando esta tubería esté probada en el
+          A16.
+
+          No probado todavía: la instalación real y la lectura en el teléfono.
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then

@@ -1,8 +1,11 @@
 # CORT · bolsillo (Android)
 
-Un cliente ligero: **una ventana al HUD que corre en la PC**. Aquí no hay cerebro — el
-núcleo (router en español, memoria SQLite, Ollama, voz) vive en la PC y se alcanza por
-la red local. Lo único que guarda esta app es la dirección de esa PC.
+Dos cosas en un mismo APK: **una ventana al HUD que corre en la PC** y, desde 3.1.0,
+**un lector en voz alta** que funciona sin la PC ni la red.
+
+Aquí no hay cerebro — el núcleo (router en español, memoria SQLite, Ollama, voz) vive en
+la PC y se alcanza por la red local. Lo único que guarda esta app es la dirección de esa
+PC y el trozo por el que iba la lectura.
 
 Por qué así y no un CORT completo dentro del teléfono: el portátil de Sandra tiene el
 cerebro y los modelos; el teléfono tiene la pantalla y el micrófono. Repetir el núcleo
@@ -21,8 +24,49 @@ arregla en el teléfono el mismo día.
 * Volver: atrás en el historial de la página; con el historial vacío, sale de la app.
 * Menú del sistema (o *Cambiar dirección* en el aviso) abre de nuevo el cuadro de
   dirección.
+* **«Leer con CORT»**: lee en voz alta un texto seleccionado en cualquier app (ver abajo).
 
-No usa AndroidX ni Kotlin ni Gradle: un `Activity` de la plataforma, `javac` y `d8`.
+No usa AndroidX ni Kotlin ni Gradle: `Activity`, `Service` y `TextToSpeech` de la
+plataforma, `javac` y `d8`.
+
+## Leer con CORT (2.0.1)
+
+Es el primer incremento del plan [`docs/ARQUITECTURA-2.0.md`](../../docs/ARQUITECTURA-2.0.md):
+el modo estudio. No necesita la PC, ni Tailscale, ni Ollama — habla el teléfono.
+
+Cómo se usa, en el teléfono:
+
+1. En cualquier app (navegador, PDF, WhatsApp), mantener pulsado hasta **seleccionar un
+   párrafo**.
+2. En el menú de selección (los tres puntos) elegir **«Leer con CORT»**. También aparece
+   en *Compartir* como destino de texto.
+3. CORT empieza a leer. La notificación trae **anterior · pausa · siguiente · detener**, y
+   los mismos botones responden desde los audífonos.
+
+Lo que hay dentro:
+
+* `LeerActivity` — la puerta. Toma el texto de `ACTION_PROCESS_TEXT` (menú de selección) o
+  de `ACTION_SEND` (compartir), pide `POST_NOTIFICATIONS` en Android 13+ y arranca el
+  servicio. No dibuja pantalla: se cierra para no tapar lo que se estaba leyendo.
+* `LectorService` — servicio en primer plano de tipo `mediaPlayback`. Trocea el texto por
+  frase (máx. 320 caracteres, sin partir palabras), habla un trozo con `QUEUE_FLUSH` y
+  arranca el siguiente en `onDone`, que es lo que hace exacta la pausa. Guarda el índice y
+  un hash del texto en `SharedPreferences` (`cort-lector`): si se vuelve a pedir el mismo
+  texto, **retoma donde iba**; si es otro, empieza de cero.
+* `MediaSession` + `Notification.MediaStyle` — que los controles existan en la pantalla
+  bloqueada, en los audífonos y en la notificación. Se usa la de la plataforma, no
+  AndroidX.
+* Voz: `TextToSpeech` del sistema en `es_ES`, con `es_MX` de reserva y un mensaje claro
+  que dice dónde instalar la voz si no hay ninguna. **Piper/sherpa entra después**, cuando
+  esta tubería esté probada en el teléfono: primero se valida lo difícil (que la lectura
+  sobreviva a la pantalla apagada y a otra app por delante) y después se cambia el motor,
+  para no depurar dos cosas a la vez.
+
+Un detalle que cuesta un crash si se ignora: un servicio arrancado con
+`startForegroundService` tiene cinco segundos para llamar a `startForeground`, **también
+cuando el texto llega vacío**. Por eso el servicio sube la notificación antes de validar
+nada y se cierra enseguida si no hay qué leer.
+
 
 ## Antes de abrir la app: la PC
 
@@ -68,19 +112,26 @@ teléfono, a la vista y sin Gradle:
 ```text
 aapt2 compile --dir res        → los iconos
 aapt2 link --manifest …        → recursos + manifiesto + versionCode
-javac --release 11             → MainActivity.java contra android.jar
+aapt2 dump xmltree             → comprueba que «Leer con CORT» quedó DENTRO
+javac --release 11             → todo src/**/*.java contra android.jar
 d8 --release --min-api 26      → classes.dex
 zip -j                         → el dex dentro del APK
 zipalign -f 4                  → alineado (Android 11 lo exige)
 apksigner sign --v1 --v2 --v3  → la llave de siempre
 ```
 
+La comprobación con `aapt2 dump xmltree` falla el run si faltara `LeerActivity`,
+`LectorService`, el filtro `PROCESS_TEXT` o el atributo `foregroundServiceType`: un
+manifiesto mal escrito que igual compila se descubriría en el teléfono como «no aparece en
+el menú».
+
 Corre en GitHub Actions (`.github/workflows/apk.yml`), no en el portátil: ahí sí hay
 JDK y SDK (`ANDROID_HOME`), y el equipo local tiene 2 núcleos y 1,8 GiB de RAM.
 
-`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.0.1 → 30001**
-(y 3.0.0 → 30000), por delante del 2.11.0 (21100) que está instalado. Esa es la condición
-para que Android ofrezca *Actualizar*: mismo paquete + misma llave + número más alto.
+`versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: **3.1.0 → 30100**
+(3.0.1 → 30001, 3.0.0 → 30000), por delante del 2.11.0 (21100) que está instalado. Esa es
+la condición para que Android ofrezca *Actualizar*: mismo paquete + misma llave + número
+más alto.
 
 ### La llave
 
@@ -150,3 +201,10 @@ Probado, con el archivo ya publicado — hoy, la Release [`v3.0.1`](https://gith
 la dirección guardada, y que el micrófono del HUD funcione dentro del `WebView` en
 Android 16. Las dos se comprueban en cinco minutos con el móvil en la mano; hasta entonces
 esta sección es la única promesa que hay que leer.
+
+Con el lector (3.1.0) hay tres comprobaciones que sólo puede hacer el teléfono, y no se
+dan por hechas:
+
+1. Que **«Leer con CORT»** aparezca en el menú de selección y lea un párrafo.
+2. Que la lectura **siga con la pantalla apagada** y con otra app delante.
+3. Que al repetir el mismo texto **retome desde el trozo donde iba**.

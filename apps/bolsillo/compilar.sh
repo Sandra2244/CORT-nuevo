@@ -9,9 +9,9 @@
 # Corre en el pipeline de GitHub Actions (`ANDROID_HOME` ya viene puesto ahí). En
 # el portátil de Sandra no hay JDK ni SDK: aquí falla con ese mensaje, no a medias.
 #
-#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.0.0
+#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.1.0
 #
-# `versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: 3.0.0 → 30000,
+# `versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: 3.1.0 → 30100,
 # que queda por delante del 2.11.0 (21100) instalado en el teléfono. Con la misma
 # llave y ese número por delante, Android ofrece «Actualizar» y no desinstala: se
 # quedan la dirección de la PC y los permisos ya concedidos.
@@ -20,7 +20,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$AQUI"
 
-VERSION="${1:-${APK_VERSION:-3.0.0}}"
+VERSION="${1:-${APK_VERSION:-3.1.0}}"
 PAQUETE="com.cort.ia"
 NOMBRE_APK="CORT-IA-${VERSION}-bolsillo.apk"
 
@@ -68,6 +68,21 @@ mkdir -p build/obj build/apk
     --min-sdk-version 26 --target-sdk-version 34 \
     --version-code "$CODE" --version-name "$VERSION" \
     build/obj/res.zip --auto-add-overlay
+
+# -- Que las piezas nuevas estén DENTRO del APK ------------------------------
+# El manifiesto se puede escribir bien y aun así no llegar al APK (un `aapt2 link`
+# que se lleva el viejo, un filtro con la categoría mal puesta). Sin esta prueba el
+# fallo aparecería en el teléfono como «Leer con CORT no está en el menú».
+# El valor de `foregroundServiceType` sale en hexadecimal en el volcado (mediaPlayback
+# es 0x2), así que aquí se comprueba el atributo; la auditoría imprime la línea con su
+# valor para que se pueda leer.
+"$BT/aapt2" dump xmltree build/apk/sin-alinear.apk --file AndroidManifest.xml \
+    > build/componentes.txt
+for pieza in com.cort.ia.LeerActivity com.cort.ia.LectorService \
+             android.intent.action.PROCESS_TEXT foregroundServiceType; do
+    grep -q "$pieza" build/componentes.txt \
+        || { echo "falta $pieza en el manifiesto compilado" >&2; exit 1; }
+done
 
 # -- El Java -----------------------------------------------------------------
 # `--release 11` con `android.jar` en el classpath: es la única prueba que existe
@@ -149,6 +164,11 @@ EOF
     # sale sin el mínimo del APK.
     "$BT/aapt2" dump badging build/"$NOMBRE_APK" 2>/dev/null \
         | grep -E "^package|versionCode|versionName|^sdkVersion|^minSdkVersion|^targetSdkVersion|uses-permission|^application-label"
+    echo
+    echo "== componentes del lector =="
+    grep -E 'LeerActivity|LectorService|PROCESS_TEXT|android.intent.action.SEND' \
+        build/componentes.txt || echo "(no aparecen)"
+    grep 'foregroundServiceType' build/componentes.txt || true
     echo
     echo "== resources.arsc (Android 11 exige: sin comprimir y alineado a 4) =="
     python3 - "build/$NOMBRE_APK" <<'PY'

@@ -22,6 +22,14 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <!-- «Leer con CORT» (2.0.1): el servicio de lectura sigue con la pantalla apagada y
+         con otra app por delante, así que va en primer plano como reproductor. En Android
+         14 el tipo `mediaPlayback` además es un permiso propio de tiempo de ejecución. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Android 13+ esconde la notificación del lector si no se concede. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:label="CORT"
         android:icon="@mipmap/ic_launcher"
@@ -42,5 +50,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Aparece en el menú de selección de texto de cualquier app («Leer con CORT»)
+             y en la hoja de «Compartir». No tiene interfaz propia: entrega el texto al
+             servicio y se cierra. `noHistory` + `excludeFromRecents` evitan que quede una
+             tarjeta fantasma encima de la lectura. -->
+        <activity
+            android:name=".LeerActivity"
+            android:exported="true"
+            android:label="Leer con CORT"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".LectorService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>

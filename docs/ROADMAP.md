@@ -87,6 +87,14 @@ voz Piper/sherpa `es_ES` + `es_MX`.
 
 - [ ] **2.0.1 Estudio** — «Leer con CORT» en el menú de selección, TTS Piper, servicio en
       primer plano con `MediaSession`, bienvenida de permisos y cola por frases.
+      *Hecho en código* (2026-10-29), APK 3.1.0: `LeerActivity`
+      (`ACTION_PROCESS_TEXT` + `ACTION_SEND`), `LectorService` en primer plano
+      `mediaPlayback`, troceo por frase con reanudación por hash del texto, controles en
+      notificación, pantalla bloqueada y audífonos, voz `es_ES` ▸ `es_MX` del sistema y
+      comprobación en la compilación de que los componentes llegaron al APK.
+      *Falta*: probarlo en el A16 (menú, pantalla apagada, reanudar) y sustituir la voz
+      del sistema por **Piper/sherpa** con los modelos `es_ES`/`es_MX`. Ese cambio es
+      2.0.1b y va después de esa prueba.
 - [ ] **2.0.2 Presencia** — overlay transparente tipo Gemini, tile del panel rápido, rol
       de asistente y «¿qué ves?» con cita del texto leído (o negativa honesta).
 - [ ] **2.0.3 Skills** — manifiestos `skill.json`, permisos por habilidad, JSON-RPC 2.0 y

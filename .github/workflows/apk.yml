@@ -155,7 +155,7 @@ jobs:
           cd "$GITHUB_WORKSPACE/apk"
           SHA="$(sha256sum "CORT-IA-${APK_VERSION}-bolsillo.apk" | awk '{print $1}')"
           HUELLA="$(grep -m1 'llave sha256' "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" | awk '{print $3}')"
-          CUERPO=$(cat <<EOF | sed 's/^          //'
+          CUERPO=$(cat <<EOF
           Cliente de bolsillo: una ventana al HUD que corre en la PC.
 
           * Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
@@ -172,7 +172,7 @@ jobs:
           permisos declarados, \`resources.arsc\` sin comprimir y alineado de a 4.
 
           No probado todavía: la instalación real en el teléfono.
-EOF
+          EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" --clobber CORT-IA-*

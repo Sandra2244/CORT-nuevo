@@ -9,7 +9,7 @@
 # Corre en el pipeline de GitHub Actions (`ANDROID_HOME` ya viene puesto ahí). En
 # el portátil de Sandra no hay JDK ni SDK: aquí falla con ese mensaje, no a medias.
 #
-#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.1.0
+#   bash apps/bolsillo/compilar.sh [version]      # por defecto 3.1.1
 #
 # `versionCode` se deriva de la versión con `MA*10000 + MI*100 + PA`: 3.1.0 → 30100,
 # que queda por delante del 2.11.0 (21100) instalado en el teléfono. Con la misma
@@ -20,7 +20,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$AQUI"
 
-VERSION="${1:-${APK_VERSION:-3.1.0}}"
+VERSION="${1:-${APK_VERSION:-3.1.1}}"
 PAQUETE="com.cort.ia"
 NOMBRE_APK="CORT-IA-${VERSION}-bolsillo.apk"
 
@@ -76,12 +76,17 @@ mkdir -p build/obj build/apk
 # El valor de `foregroundServiceType` sale en hexadecimal en el volcado (mediaPlayback
 # es 0x2), así que aquí se comprueba el atributo; la auditoría imprime la línea con su
 # valor para que se pueda leer.
-"$BT/aapt2" dump xmltree build/apk/sin-alinear.apk --file AndroidManifest.xml \
-    > build/componentes.txt
-for pieza in com.cort.ia.LeerActivity com.cort.ia.LectorService \
-             android.intent.action.PROCESS_TEXT foregroundServiceType; do
-    grep -q "$pieza" build/componentes.txt \
-        || { echo "falta $pieza en el manifiesto compilado" >&2; exit 1; }
+# `dump xmltree` sin `--file` vuelca el manifiesto; con `--file` busca dentro de
+# `resources.arsc` y el manifiesto no está ahí, así que devolvía un archivo vacío.
+"$BT/aapt2" dump xmltree build/apk/sin-alinear.apk > build/componentes.txt
+# Se buscan los nombres cortos a propósito: el volcado no siempre escribe el paquete
+# completo (`com.cort.ia.LeerActivity` sale como `.LeerActivity` según la versión).
+for pieza in LeerActivity LectorService PROCESS_TEXT foregroundServiceType; do
+    if ! grep -q "$pieza" build/componentes.txt; then
+        echo "falta $pieza en el manifiesto compilado; esto es lo que sí trae:" >&2
+        cat build/componentes.txt >&2
+        exit 1
+    fi
 done
 
 # -- El Java -----------------------------------------------------------------

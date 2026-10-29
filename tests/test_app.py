@@ -250,6 +250,47 @@ class PruebasCort(unittest.TestCase):
         descargar.assert_not_called()
         self.assertFalse(datos["ok"])
 
+    # --- voz propia: lo que no sabe queda anotado ---------------------
+    def test_lo_que_no_sabe_queda_anotado(self):
+        with mock.patch.object(self.app.ollama, "disponible", return_value=False):
+            self.app.responder("explícame la fotosíntesis")
+        huecos = self.app.estado_hud()["huecos"]
+        self.assertEqual(huecos[0]["pregunta"], "explícame la fotosíntesis")
+        self.assertEqual(huecos[0]["motivo"], "sin_cerebro")
+
+    def test_una_orden_bien_resuelta_no_deja_hueco(self):
+        self.app.responder("hola")
+        self.app.responder("¿qué hora es?")
+        self.assertEqual(self.app.memoria.huecos_total(), 0)
+
+    def test_preguntar_que_no_sabe_lista_los_huecos(self):
+        with mock.patch.object(self.app.ollama, "disponible", return_value=False):
+            self.app.responder("explícame la fotosíntesis")
+            self.app.responder("explícame la fotosíntesis")
+        datos = self.app.responder("¿qué no sabés?")
+        self.assertEqual(datos["herramienta"], "huecos")
+        self.assertIn("fotosíntesis", datos["respuesta"])
+        self.assertIn("2 preguntas", datos["respuesta"])
+
+    def test_olvidar_huecos_los_borra(self):
+        self.app.memoria.anotar_hueco("algo que no sé")
+        datos = self.app.responder("olvidá lo que no sabés")
+        self.assertEqual(datos["herramienta"], "huecos")
+        self.assertEqual(self.app.memoria.huecos_total(), 0)
+
+    def test_un_turno_detenido_no_cuenta_como_hueco(self):
+        def cortado(*_args, **_kwargs):
+            # El modelo se cancela a mitad de la generación: no es un hueco, es un STOP.
+            self.app.ollama.cancelado = True
+            return ""
+
+        with mock.patch.object(self.app.ollama, "disponible", return_value=True), mock.patch.object(
+            self.app.ollama, "conversar", side_effect=cortado
+        ):
+            datos = self.app.responder("cuéntame algo largo")
+        self.assertEqual(datos["herramienta"], "detenido")
+        self.assertEqual(self.app.memoria.huecos_total(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

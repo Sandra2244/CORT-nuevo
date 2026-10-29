@@ -1,8 +1,10 @@
 # CORT 2.0 — Arquitectura híbrida y autonomía
 
 **Fecha:** 2026-10-29.
-**Estado:** plano aprobado por Sandra en la encuesta de arquitectura; sin código todavía.
-**Base:** CORT 1.7 (158 pruebas, HUD con orbe, APK `com.cort.ia` 3.0.1 firmado).
+**Estado:** plano aprobado; la 2.0.1 está publicada como APK 3.1.2 y la 2.0.2 (voz propia)
+está en `main`. Las fases 2.0.3 a 2.0.7 siguen sin código.
+**Base:** CORT 1.7 (158 pruebas, HUD con orbe, APK `com.cort.ia` 3.0.1 firmado) + 2.0.1 y
+2.0.2.
 **Origen de las decisiones:** conversación con Claude del 29/10 (lectura en voz alta,
 rol de asistente, Plan B), video de referencia `I Built a Real J.A.R.V.I.S` (HUD de
 telemetría), y las cuatro respuestas de la encuesta de hoy.
@@ -227,9 +229,12 @@ Del video se toma **la estructura**, no el arte:
 
 ## 9. Memoria 2.0
 
-Lo que hay: `facts`, `episodes`, `alarms`, `meta`. Lo que se añade:
+Lo que hay: `facts`, `episodes`, `alarms`, `meta` y, desde la 2.0.2, `gaps`. Lo que se
+añade:
 
 | Tabla | Para qué |
+| --- | --- |
+| `gaps` *(ya está)* | lo que CORT no supo ni pudo hacer: pregunta normalizada, motivo, veces y última fecha. Alimenta «¿qué no sabés?» y, más adelante, las skills que faltan |
 | --- | --- |
 | `notes` + FTS5 | índice de `knowledge/*.md` con búsqueda por palabra y por frase |
 | `runs` / `steps` | trazas del agente, con duración y error |
@@ -247,11 +252,12 @@ el diafragma urogenital, donde lo dejaste», en vez de empezar de cero.
 | Fase | Qué se construye | Se acepta cuando |
 | --- | --- | --- |
 | **2.0.1 Estudio** | `ACTION_PROCESS_TEXT`, TTS Piper, servicio en primer plano con `MediaSession`, bienvenida de permisos, cola por frases | Seleccionás un párrafo en Notas, suena en < 2 s, sigue 10 min con pantalla apagada y pausa desde los audífonos |
-| **2.0.2 Presencia** | Overlay transparente, tile, rol de asistente, «¿qué ves?» con grounding | El overlay abre encima de WhatsApp; «¿qué ves?» cita el texto real o dice que no ve nada; el botón lateral abre CORT (o se documenta que One UI no lo permite) |
-| **2.0.3 Skills** | Manifiestos, registro con permisos, JSON-RPC, migración de las 16 herramientas | Una skill nueva se escribe fuera del núcleo, se lista en el HUD y sus pruebas fallan si se le quita el permiso |
-| **2.0.4 Agente** | Planificador, presupuesto, aprobación ALLOW/DENY, `runs`/`steps`, vista de trazas | Un objetivo de 3 pasos se ejecuta, se ve la traza y se detiene al agotar presupuesto sin efectos raros |
-| **2.0.5 HUD 2.0** | Paneles del video, máquinas, skills, diagnóstico, tablero | 60 fps con el orbe activo; los datos son reales; el teléfono se ve como máquina conectada |
-| **2.0.6 Híbrido** | Modelo local en el teléfono, router por tarea, sincronización de memoria | Con la PC apagada, el teléfono responde 2 de 3 consultas cortas sin mentir; la batería aguanta la lectura de 10 min |
+| **2.0.2 Voz propia** | `honesto.py` como única fuente de los fallos, persona cálida con protocolo de «no sé», tabla `gaps` y consulta «¿qué no sabés?» | Toda respuesta sin modelo o con error sale de `honesto.py`; una pregunta no respondida queda anotada con su motivo y se puede listar y borrar (177 pruebas) |
+| **2.0.3 Presencia** | Overlay transparente, tile, rol de asistente, «¿qué ves?» con grounding | El overlay abre encima de WhatsApp; «¿qué ves?» cita el texto real o dice que no ve nada; el botón lateral abre CORT (o se documenta que One UI no lo permite) |
+| **2.0.4 Skills** | Manifiestos, registro con permisos, JSON-RPC, migración de las 16 herramientas | Una skill nueva se escribe fuera del núcleo, se lista en el HUD y sus pruebas fallan si se le quita el permiso |
+| **2.0.5 Agente** | Planificador, presupuesto, aprobación ALLOW/DENY, `runs`/`steps`, vista de trazas | Un objetivo de 3 pasos se ejecuta, se ve la traza y se detiene al agotar presupuesto sin efectos raros |
+| **2.0.6 HUD 2.0** | Paneles del video, máquinas, skills, diagnóstico, tablero | 60 fps con el orbe activo; los datos son reales; el teléfono se ve como máquina conectada |
+| **2.0.7 Híbrido** | Modelo local en el teléfono, router por tarea, sincronización de memoria | Con la PC apagada, el teléfono responde 2 de 3 consultas cortas sin mentir; la batería aguanta la lectura de 10 min |
 
 Cada fase se publica con su etiqueta y su `-firma.txt`, como la 1.7. Nada se anuncia como
 hecho sin la medición correspondiente.
@@ -303,4 +309,10 @@ Se copian las ideas (memoria jerárquica, grafo de estados), no el runtime.
 (`es_ES` ▸ `es_MX`) y la tubería completa —`ACTION_PROCESS_TEXT`, servicio en primer plano
 `mediaPlayback`, `MediaSession`, troceo por frase y reanudación por hash del texto—. Lo
 medido está en `docs/MEDICIONES.md`. La sustitución por Piper es 2.0.1b y espera la prueba
-en el A16: primero se valida la tubería, después se cambia el motor.*
+en el A16: primero se valida la tubería, después se cambia el motor.
+
+La 2.0.2 («Voz propia») está en `main`: `cort/brain/honesto.py` concentra los fallos, la
+persona es cálida y dice el límite en la primera frase, y todo turno que no se pudo cerrar
+queda en `gaps` con su motivo. Es el carácter de CORT lo que se probó ahí, no una animación:
+177 pruebas en local, incluida la de que un turno cancelado por Sandra **no** se anota como
+hueco.*

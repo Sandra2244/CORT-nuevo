@@ -7,6 +7,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from ..text import normalizar
+
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS facts (
     clave TEXT PRIMARY KEY,
@@ -34,8 +36,21 @@ CREATE TABLE IF NOT EXISTS meta (
     clave TEXT PRIMARY KEY,
     valor TEXT NOT NULL
 );
+-- Lo que CORT no supo responder. No es un historial más: es la lista de lo que
+-- le falta —modelos, apuntes o conexión—, y por eso se agrupa por pregunta
+-- normalizada en vez de guardar cada intento suelto.
+CREATE TABLE IF NOT EXISTS gaps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clave TEXT NOT NULL UNIQUE,
+    pregunta TEXT NOT NULL,
+    motivo TEXT DEFAULT '',
+    veces INTEGER DEFAULT 1,
+    creado TEXT NOT NULL,
+    ultimo TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_episodes_id ON episodes(id DESC);
 CREATE INDEX IF NOT EXISTS idx_alarms_cuando ON alarms(cuando);
+CREATE INDEX IF NOT EXISTS idx_gaps_veces ON gaps(veces DESC);
 """
 
 
@@ -147,6 +162,52 @@ class Memoria:
         with self._lock:
             self._db.execute("UPDATE alarms SET disparada = 1 WHERE id = ?", (alarma_id,))
             self._db.commit()
+
+    # --- huecos ---------------------------------------------------------
+    def anotar_hueco(self, pregunta: str, motivo: str = "") -> None:
+        """Registra una pregunta que CORT no pudo responder.
+
+        Se agrupa por pregunta normalizada (sin tildes, sin signos, en minúsculas)
+        para que la misma duda sume `veces` en lugar de llenar la tabla de copias.
+        """
+        visible = " ".join(str(pregunta or "").split())[:300]
+        clave = normalizar(pregunta)[:160]
+        if not clave:
+            return
+        motivo = " ".join(str(motivo or "").split())[:80]
+        ahora = _ahora()
+        with self._lock:
+            self._db.execute(
+                """INSERT INTO gaps (clave, pregunta, motivo, veces, creado, ultimo)
+                   VALUES (?, ?, ?, 1, ?, ?)
+                   ON CONFLICT(clave) DO UPDATE SET
+                     veces = gaps.veces + 1,
+                     pregunta = excluded.pregunta,
+                     motivo = excluded.motivo,
+                     ultimo = excluded.ultimo""",
+                (clave, visible, motivo, ahora, ahora),
+            )
+            self._db.commit()
+
+    def huecos(self, limite: int = 5) -> list[dict]:
+        with self._lock:
+            filas = self._db.execute(
+                "SELECT pregunta, motivo, veces, ultimo FROM gaps "
+                "ORDER BY veces DESC, ultimo DESC LIMIT ?",
+                (max(1, int(limite)),),
+            ).fetchall()
+        return [dict(f) for f in filas]
+
+    def huecos_total(self) -> int:
+        with self._lock:
+            fila = self._db.execute("SELECT COALESCE(SUM(veces), 0) FROM gaps").fetchone()
+        return int(fila[0])
+
+    def olvidar_huecos(self) -> int:
+        with self._lock:
+            cur = self._db.execute("DELETE FROM gaps")
+            self._db.commit()
+        return cur.rowcount
 
     # --- meta -----------------------------------------------------------
     def meta(self, clave: str, valor: str | None = None) -> str | None:

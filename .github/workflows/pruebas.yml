@@ -1,0 +1,43 @@
+# CORT · la suite en cada empujón a `main`.
+#
+# Por qué existe aparte del APK: `apk.yml` sólo se dispara con etiquetas, así que
+# un commit normal a `main` podía dejar la suite roja sin que nadie lo viera hasta
+# la siguiente Release. Acá corre lo mismo que la puerta del APK —las 158+ pruebas
+# y un `--once` sin voz— pero en cada push, sin compilar nada de Android.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencias
+        run: python3 -m pip install --quiet requests psutil
+      - name: Suite unittest
+        # Los logs de Actions dan 403 sin sesión: el fallo viaja como anotación.
+        run: |
+          set +e
+          python3 -m unittest discover -s tests > /tmp/pruebas.log 2>&1
+          st=$?
+          tail -c 4000 /tmp/pruebas.log
+          if [ $st -ne 0 ]; then
+            fallas="$(grep -E '^(FAIL|ERROR):' /tmp/pruebas.log | head -20 | tr '\n' ';')"
+            resumen="$(grep -E '^(FAILED|OK|Ran )' /tmp/pruebas.log | tr '\n' ' ')"
+            echo "::error::suite roja con $st — ${resumen:-sin resumen} — ${fallas:-(sin nombres)}"
+            exit $st
+          fi
+          echo "::notice::suite verde — $(grep -E '^Ran ' /tmp/pruebas.log | tr -d '\n')"
+      - name: Sin voz, sin Ollama, una sola frase
+        run: python3 -m cort --once "qué hora es" --sin-voz

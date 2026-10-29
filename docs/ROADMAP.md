@@ -78,12 +78,18 @@ Estado: publicada y compilada en GitHub Actions; falta instalarla en el teléfon
 
 ## Fase 2.0 — Híbrido, autonomía y asistente Android (plan aprobado 2026-10-29)
 
-Plano completo en `docs/ARQUITECTURA-2.0.md`. Decisiones en ADR-009 a ADR-012. Esta fase
+Plano completo en `docs/ARQUITECTURA-2.0.md`. Decisiones en ADR-009 a ADR-013. Esta fase
 absorbe lo que antes eran la fase 2 (voz) y la fase 4 (Android).
 
-Lo que Sandra decidió en la encuesta: rol de asistente **y** overlay desde el día uno;
-CORT híbrido con modelos en el teléfono *y* en la PC; primer incremento = modo estudio;
-voz Piper/sherpa `es_ES` + `es_MX`.
+Lo que Sandra decidió en la encuesta de arquitectura: rol de asistente **y** overlay desde
+el día uno; CORT híbrido con modelos en el teléfono *y* en la PC; primer incremento = modo
+estudio; voz Piper/sherpa `es_ES` + `es_MX`.
+
+Lo que decidió en la segunda encuesta (2026-10-29): la tanda arranca por **personalidad y
+«no sé»** antes que por el HUD; el tono es **cálido y cercano**, que reconoce el límite y
+ofrece acompañar; el HUD nuevo sigue los **paneles del video** (orbe al centro con la palabra
+de estado, alrededor máquinas, skills, diagnóstico y trazas, con densidad de telemetría); y
+el primer modelo dentro del teléfono es **Qwen2.5 0.5B int4** (≈400 MB).
 
 - [ ] **2.0.1 Estudio** — «Leer con CORT» en el menú de selección, TTS Piper, servicio en
       primer plano con `MediaSession`, bienvenida de permisos y cola por frases.
@@ -95,15 +101,21 @@ voz Piper/sherpa `es_ES` + `es_MX`.
       *Falta*: probarlo en el A16 (menú, pantalla apagada, reanudar) y sustituir la voz
       del sistema por **Piper/sherpa** con los modelos `es_ES`/`es_MX`. Ese cambio es
       2.0.1b y va después de esa prueba.
-- [ ] **2.0.2 Presencia** — overlay transparente tipo Gemini, tile del panel rápido, rol
+- [x] **2.0.2 Voz propia** — una sola casa para fallar con honestidad (`honesto.py`),
+      persona cálida y cercana con protocolo explícito de «no sé», y tabla `gaps` que
+      guarda lo que CORT no pudo responder, con contador y pregunta rescatable
+      («¿qué no sabés?» / «olvidá lo que no sabés»). 177 pruebas verdes en local
+      (2026-10-29). *Falta*: correr la suite en Actions con `pruebas.yml` y escuchar
+      la voz nueva en dos o tres conversaciones reales.
+- [ ] **2.0.3 Presencia** — overlay transparente tipo Gemini, tile del panel rápido, rol
       de asistente y «¿qué ves?» con cita del texto leído (o negativa honesta).
-- [ ] **2.0.3 Skills** — manifiestos `skill.json`, permisos por habilidad, JSON-RPC 2.0 y
+- [ ] **2.0.4 Skills** — manifiestos `skill.json`, permisos por habilidad, JSON-RPC 2.0 y
       migración de las 16 herramientas actuales.
-- [ ] **2.0.4 Agente** — planificador con presupuesto de pasos, aprobación ALLOW/DENY,
+- [ ] **2.0.5 Agente** — planificador con presupuesto de pasos, aprobación ALLOW/DENY,
       tablas `runs`/`steps` y vista de trazas.
-- [ ] **2.0.5 HUD 2.0** — paneles de telemetría del video, máquinas (PC y teléfono),
+- [ ] **2.0.6 HUD 2.0** — paneles de telemetría del video, máquinas (PC y teléfono),
       skills, diagnóstico y tablero; orbe conservado con anillo de marcas.
-- [ ] **2.0.6 Híbrido** — modelo local en el teléfono, router por tarea/batería/red y
+- [ ] **2.0.7 Híbrido** — modelo local en el teléfono, router por tarea/batería/red y
       sincronización incremental de memoria.
 
 Criterio de cierre de cada punto: la medición de [`docs/MEDICIONES.md`](MEDICIONES.md), no
@@ -148,6 +160,9 @@ compila firmado. Falta el teléfono delante.
 El grueso se hizo en la fase 1.7; lo que queda es de acabado.
 
 - [x] Repo público, `main` como única rama, y CI que corre las pruebas antes del APK.
+- [x] `pruebas.yml`: la suite completa y `--once` en cada `push` a `main` y en cada
+      `pull_request`. Antes sólo se mediaban las pruebas al etiquetar y un rojo podía
+      quedarse días en `main` sin que nadie lo viera.
 - [x] Etiquetas `v3.0.0` y `v3.0.1` con el APK firmado y sus dos archivos de evidencia.
 - [ ] README con badges, índice y capturas nuevas (la guía de instalación ya está).
 - [ ] Licencia y créditos (Sandra y Askher).

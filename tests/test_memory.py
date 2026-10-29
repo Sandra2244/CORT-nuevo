@@ -91,6 +91,34 @@ class PruebasMemoria(unittest.TestCase):
         alarma = [a for a in self.memoria.proximas_alarmas(5) if a["id"] == alarma_id][0]
         self.assertEqual(alarma["texto"], "Es hora")
 
+    # --- huecos ---------------------------------------------------------
+    def test_hueco_suma_veces_si_se_repite(self):
+        self.memoria.anotar_hueco("¿Qué es la fascia lata?", "sin modelo")
+        self.memoria.anotar_hueco("Que es la fascia lata", "sin modelo")
+        lista = self.memoria.huecos(10)
+        self.assertEqual(len(lista), 1, "la misma duda con otra puntuación es el mismo hueco")
+        self.assertEqual(lista[0]["veces"], 2)
+        self.assertEqual(self.memoria.huecos_total(), 2)
+
+    def test_huecos_se_ordenan_por_veces(self):
+        self.memoria.anotar_hueco("pregunta rara")
+        for _ in range(3):
+            self.memoria.anotar_hueco("pregunta frecuente")
+        self.assertEqual(
+            [h["pregunta"] for h in self.memoria.huecos(2)],
+            ["pregunta frecuente", "pregunta rara"],
+        )
+
+    def test_hueco_vacio_no_entra(self):
+        self.memoria.anotar_hueco("   ", "sin modelo")
+        self.assertEqual(self.memoria.huecos(), [])
+
+    def test_olvidar_huecos(self):
+        self.memoria.anotar_hueco("uno")
+        self.memoria.anotar_hueco("dos")
+        self.assertEqual(self.memoria.olvidar_huecos(), 2)
+        self.assertEqual(self.memoria.huecos_total(), 0)
+
     # --- meta -----------------------------------------------------------
     def test_meta_guarda_y_actualiza(self):
         self.assertIsNone(self.memoria.meta("arranque"))

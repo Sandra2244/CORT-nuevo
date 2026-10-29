@@ -111,8 +111,10 @@ class PruebasArnes(unittest.TestCase):
         ollama = OllamaGuion([], modelo="")
         arnes = Arnes(ollama, self.registro, self.cfg, Bus())
         respuesta, pasos = arnes.ejecutar("algo", self.ctx)
-        self.assertIn("No tengo un modelo de lenguaje", respuesta)
+        self.assertIn("no tengo el modelo de lenguaje", respuesta)
         self.assertEqual(pasos, [])
+        # El objetivo queda anotado como hueco: es lo que el HUD mostrará después.
+        self.assertEqual(self.ctx.memoria.huecos_total(), 1)
 
     def test_se_detiene_al_agotar_pasos(self):
         ollama = OllamaGuion(['{"tool": "eco", "args": {"texto": "x"}}'] * 3)
@@ -131,7 +133,7 @@ class PruebasArnes(unittest.TestCase):
         )
         arnes = Arnes(ollama, self.registro, self.cfg, Bus())
         respuesta, pasos = arnes.ejecutar("falla", self.ctx)
-        self.assertIn("El arnés se detuvo", respuesta)
+        self.assertIn("Me detuve en el paso 3", respuesta)
         self.assertIn("No existe la herramienta", respuesta)
         self.assertEqual(len(pasos), 3)
 

@@ -116,3 +116,18 @@ copia el `.db` completo: eventos con `revision`.
 fácil de auditar; pero resolver `.aar` a mano es frágil y no escala.
 **Consecuencia:** dos artefactos, misma llave y misma huella verificada; el `-firma.txt`
 y la auditoría se mantienen en ambos.
+
+## ADR-013 — Personalidad cálida y registro de huecos
+
+**Fecha:** 2026-10-29.
+**Decisión:** el carácter de CORT y su comportamiento ante lo desconocido viven en
+`cort/brain/persona.py` (prompt) y `cort/brain/honesto.py` (respuestas). Toda pregunta que
+no se pudo responder se anota en la tabla `gaps` de la memoria, agrupada por pregunta
+normalizada, y se puede consultar con «¿qué no sabés?».
+**Motivo:** Sandra eligió tono **cálido y cercano** y pidió explícitamente que CORT «tenga
+personalidad cuando no me sepa responder». Un asistente que inventa una respuesta
+plausible es indistinguible de uno que sabe; los huecos convierten cada fallo en una lista
+de lo que falta (modelo, apuntes o conexión) en vez de un mensaje suelto que se pierde.
+**Consecuencia:** las respuestas de fallo dejan de estar repartidas entre `app.py`,
+`harness.py` y `router.py`; cualquier módulo nuevo debe usar `honesto.*` y anotar el hueco
+con el motivo. Negarse sigue siendo una respuesta de primera clase, no una página de error.

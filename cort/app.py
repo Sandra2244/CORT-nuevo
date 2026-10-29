@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 
 from . import __version__
+from .brain import honesto
 from .brain import persona
 from .brain import ollama as ollama_mod
 from .brain.harness import Arnes
@@ -34,14 +35,14 @@ AYUDA = """Puedo hacer esto sin necesidad de modelo:
 • «alarma a las 6:30 con …» / «recuérdame …»
 • «me llamo …», «recuerda que …», «olvida …», «¿cómo me llamo?»
 • «qué sabes de …» (lee la carpeta knowledge/)
+• «qué no sabés» (lo que CORT no pudo responder)
 • «silencio» / «habla»
 
 Con Ollama encendido también converso y uso el arnés («investiga…», «compara…»)."""
 
-SIN_CEREBRO = (
-    "No tengo un modelo de lenguaje cargado: Ollama no responde. Puedo ejecutar comandos "
-    "directos como «qué hora es», «clima», «cómo está la PC», «abre la calculadora», "
-    "«reproduce…», «alarma a las 6:30» o «recuerda que…». Para conversar, encendé Ollama."
+SIN_CEREBRO = honesto.sin_modelo(
+    ["la hora y la fecha", "el clima", "cómo está la PC", "abrir una calculadora",
+     "una alarma a las 6:30", "recordar un dato"]
 )
 
 
@@ -280,7 +281,7 @@ class Cort:
         if intento is not None:
             via = "router"
             self.bus.estado("executing")
-            respuesta, herramienta = self._intencion(intento)
+            respuesta, herramienta = self._intencion(intento, texto)
             fallo = herramienta in ("error", "sin_cerebro") or "(error)" in herramienta
         else:
             respuesta, herramienta = self._conversar(texto)
@@ -291,7 +292,11 @@ class Cort:
             herramienta = "detenido"
             parcial = (respuesta or "").strip()
             respuesta = f"{parcial} … (turno detenido)" if parcial else "Turno detenido."
-        respuesta = (respuesta or "").strip() or "No supe qué responder."
+        # Un hueco no es un error más: es la lista de lo que le falta a CORT.
+        # Se anota sólo lo que falló de verdad, nunca un turno detenido a propósito.
+        if fallo and not cancelado:
+            self.memoria.anotar_hueco(texto, herramienta or "error")
+        respuesta = (respuesta or "").strip() or honesto.no_supe("no llegó ninguna respuesta")
         ms = int((time.monotonic() - t0) * 1000)
         self.bus.evento(
             "error" if fallo else ("detenido" if cancelado else "ejecucion"),
@@ -327,7 +332,7 @@ class Cort:
         }
 
     # --- intenciones ----------------------------------------------------
-    def _intencion(self, intento) -> tuple[str, str]:
+    def _intencion(self, intento, texto: str = "") -> tuple[str, str]:
         nombre, args = intento.nombre, dict(intento.args or {})
         if nombre == "saludo":
             return "Hola. Te escucho.", ""
@@ -336,6 +341,13 @@ class Cort:
         if nombre == "apagar":
             self._apagar = True
             return "Hasta luego. Cierro la sesión.", "apagar"
+        if nombre == "huecos":
+            return self._huecos(), "huecos"
+        if nombre == "huecos_olvidar":
+            cuantos = self.memoria.olvidar_huecos()
+            if cuantos:
+                return f"Listo, borré {cuantos} hueco(s). Empiezo de nuevo a anotar lo que no sepa.", "huecos"
+            return "No tenía huecos anotados.", "huecos"
         if nombre == "silencio":
             activar = bool(args.get("activar", True))
             self.tts.callar(activar)
@@ -442,7 +454,26 @@ class Cort:
                 args.setdefault("playlist", "")
             texto, estado = self.registro.ejecutar(nombre, args, self.ctx)
             return texto, nombre if estado == "ok" else f"{nombre} (error)"
-        return "No supe cómo manejar esa orden.", ""
+        return honesto.orden_dudosa(texto), ""
+
+    def _huecos(self) -> str:
+        """Lo que CORT no supo, ordenado por cuántas veces le preguntaron."""
+        lista = self.memoria.huecos(5)
+        total = self.memoria.huecos_total()
+        if not lista:
+            return (
+                "Todavía no tengo huecos anotados. Desde ahora guardo cada pregunta que no "
+                "pueda responder, para no perder de vista lo que me falta."
+            )
+        partes = []
+        for h in lista:
+            veces = f" ({h['veces']} veces)" if h["veces"] > 1 else ""
+            partes.append(f"«{h['pregunta']}»{veces}")
+        cuerpo = "; ".join(partes)
+        return (
+            f"Esto es lo que todavía no sé: {cuerpo}. Son {total} preguntas anotadas. "
+            "Si querés empiezo de cero, decime «olvidá lo que no sabés»."
+        )
 
     # --- conversación libre --------------------------------------------
     def limpiar_contexto(self) -> None:
@@ -504,7 +535,7 @@ class Cort:
         self.bus.flag("modelo", self.ollama.modelo)
         if not respuesta:
             detalle = self.ollama.ultimo_error or "sin detalle"
-            return f"No pude generar una respuesta. Detalle: {detalle}", "error"
+            return honesto.fallo_modelo(detalle), "error"
         self._recordar_turno(texto, respuesta)
         return respuesta, "chat"
 
@@ -561,6 +592,8 @@ class Cort:
                 "descargando": self._descargando,
                 "descarga": dict(self._progreso, modelo=self._descargando) if self._descargando else dict(self._progreso),
                 "parcial": self._parcial_texto(),
+                "huecos": self.memoria.huecos(5),
+                "huecos_total": self.memoria.huecos_total(),
                 "voz": {
                     "tts": self.tts.disponible,
                     "tts_activo": self.tts.activo,

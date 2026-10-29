@@ -93,6 +93,12 @@ def enrutar(texto: str) -> Intencion | None:
     if norm in {"ayuda", "comandos", "que puedes hacer", "que sabes hacer", "help"}:
         return Intencion("ayuda", {}, texto)
 
+    # Antes de «qué sabes de…»: acá pregunta por lo que CORT no supo.
+    if contiene(norm, "olvida lo que no sabes", "borra los huecos", "olvida los huecos"):
+        return Intencion("huecos_olvidar", {}, texto)
+    if contiene(norm, "que no sabes", "que no supiste", "que te falta saber", "huecos"):
+        return Intencion("huecos", {}, texto)
+
     if any(norm.startswith(p) for p in ("apagate", "cierrate", "adios cort", "hasta luego cort")):
         return Intencion("apagar", {}, texto)
 

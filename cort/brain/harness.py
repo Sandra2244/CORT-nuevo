@@ -6,6 +6,7 @@ import json
 import time
 from typing import Any
 
+from . import honesto
 from . import persona
 from ..text import recortar
 from ..tools.base import Contexto
@@ -34,9 +35,12 @@ class Arnes:
     def ejecutar(self, objetivo: str, ctx: Contexto, historial: list[dict] | None = None) -> tuple[str, list[str]]:
         pasos: list[str] = []
         if not self.ollama.elegir_modelo():
+            ctx.memoria.anotar_hueco(objetivo, "arnés sin modelo")
             return (
-                "No tengo un modelo de lenguaje cargado, así que no puedo razonar paso a paso. "
-                "Puedo ejecutar comandos directos: hora, clima, sistema, abre…, busca…, reproduce…",
+                honesto.sin_modelo(
+                    ["la hora", "el clima", "cómo está la PC", "abrir una app de la lista",
+                     "buscar en la web"]
+                ),
                 pasos,
             )
         sistema = persona.construir(
@@ -56,10 +60,8 @@ class Arnes:
             if getattr(self.ollama, "cancelado", False):
                 return "Turno detenido.", pasos
             if not respuesta:
-                return (
-                    "El modelo no respondió. " + (f"Detalle: {self.ollama.ultimo_error}" if self.ollama.ultimo_error else ""),
-                    pasos,
-                )
+                ctx.memoria.anotar_hueco(objetivo, "arnés sin respuesta")
+                return honesto.fallo_modelo(self.ollama.ultimo_error or ""), pasos
             dato = _extraer_json(respuesta)
             if not dato:
                 return respuesta.strip(), pasos
@@ -92,9 +94,11 @@ class Arnes:
                 {"role": "user", "content": f"Resultado de la herramienta {nombre} ({estado}): {texto}"}
             )
             if estado == "error" and paso == self.max_pasos:
-                return f"El arnés se detuvo: {texto}", pasos
-        return (
-            "Me quedé sin pasos antes de llegar a una respuesta. Último resultado: "
-            + (pasos[-1] if pasos else "sin pasos"),
-            pasos,
-        )
+                ctx.memoria.anotar_hueco(objetivo, f"arnés: {nombre} falló")
+                return (
+                    f"Me detuve en el paso {paso} porque {nombre} falló: {texto} "
+                    "No sigo a ciegas; ¿lo intentamos por otro lado o lo dejamos anotado?",
+                    pasos,
+                )
+        ctx.memoria.anotar_hueco(objetivo, "arnés sin pasos")
+        return honesto.sin_pasos(pasos[-1] if pasos else ""), pasos

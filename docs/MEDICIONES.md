@@ -44,6 +44,22 @@ Dejar el registro evita repetir el mismo error y explica por qué el número no 
 Sin medir. Se cierra cuando el teléfono pronuncie con Piper un párrafo de 200 palabras y
 se anote el tiempo hasta la primera palabra.
 
+## 2.0.2 — «Voz propia» (2026-10-29)
+
+| Qué | Valor medido | De dónde |
+|---|---|---|
+| Suite completa | **177 pruebas en verde**, 101,756 s | `python3 -m unittest discover -s tests`, 2026-10-29, este portátil |
+| Pruebas nuevas de honestidad y persona | 10 (`tests/test_honesto.py`) | ídem |
+| Pruebas de huecos en la memoria | 5 (dedupe con `veces`, orden, vacío, borrado) | `tests/test_memory.py` |
+| Pruebas de huecos en el flujo | 5 (`tests/test_app.py`: se anota, no se anota si sale bien, se lista, se borra, cancelar no cuenta) | ídem |
+| La prueba puede fallar | se mutó el contador `veces` de `anotar_hueco` y la suite dio rojo; archivo restaurado y verificado con `md5sum -c` (`6706e377…6bb699`) | corrida local de mutación |
+| Texto de los fallos | todos salen de `cort/brain/honesto.py`; ninguna respuesta de error se arma en otro módulo | lectura de `app.py` y `harness.py` |
+| CI en `main` | `.github/workflows/pruebas.yml`: suite + `--once` en cada push y en cada PR | archivo en `main` |
+
+Lo que **no** está medido todavía: la suite corriendo en Actions con el flujo nuevo (se anota con
+el número de run cuando salga) y el juicio de Sandra escuchando la voz nueva en conversaciones
+reales. Hasta entonces, «suena más cálida» es una intención, no una medición.
+
 ## Pendiente de medir en el A16
 
 Estas tres no tienen número todavía y no se anuncian como funcionando:

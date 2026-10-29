@@ -8,7 +8,7 @@ conversar y razonar paso a paso.
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-7dffb2)
-![Estado](https://img.shields.io/badge/Estado-fase%201%20local-6ff3ff)
+![Estado](https://img.shields.io/badge/Estado-fase%202.0-6ff3ff)
 
 ![HUD de CORT](docs/hud.png)
 
@@ -31,6 +31,7 @@ conversar y razonar paso a paso.
 - [HUD](#hud)
 - [Voz](#voz)
 - [Arnés de agentes](#arnés-de-agentes)
+- [Personalidad](#personalidad)
 - [Memoria y datos](#memoria-y-datos)
 - [Configuración](#configuración)
 - [Pruebas](#pruebas)
@@ -44,7 +45,9 @@ CORT es un asistente que corre en tu propia computadora. El router entiende fras
 español y resuelve los comandos frecuentes sin depender de internet ni de un modelo de lenguaje:
 hora, fecha, clima, estado del sistema, alarmas, memoria, apuntes locales, apps permitidas,
 búsquedas, música y control de reproducción. Cuando la frase no es un comando conocido, consulta
-Ollama; si Ollama no está encendido, lo dice con claridad en lugar de inventar.
+Ollama; si Ollama no está encendido, lo dice con claridad en lugar de inventar. Cuando tampoco el
+modelo puede, CORT admite el límite con calidez, ofrece salidas reales y anota la pregunta para
+que no se pierda: «¿qué no sabés?» devuelve esa lista.
 
 El HUD es una página local servida por CORT. Se puede abrir en el navegador o en una ventana
 nativa si `pywebview` está instalado. La voz usa `espeak-ng` y la escucha es opcional con Vosk en
@@ -61,7 +64,7 @@ de octubre de 2026**:
 
 | Comprobación | Resultado |
 | --- | --- |
-| Suite de pruebas | **158 pruebas unittest en verde** |
+| Suite de pruebas | **177 pruebas unittest en verde** en local (101,8 s) |
 | CLI | `--version`, `--once`, `--doctor`, `--hud`, `--no-abrir`, `--puerto`, `--host`, `--token` |
 | HUD | reloj cinematográfico, orbe con 4 estilos, 9 estados, animación de ejecución, chat, rail de acciones, panel de capacidades, paleta de comandos, panel de modelos, arranque y diseño adaptable con PWA |
 | Modelos Ollama | listado real, selección persistida, recomendados, descarga con progreso y cancelación, y auto-selección al terminar |
@@ -75,9 +78,10 @@ de octubre de 2026**:
 | VLC real | reproducción de un WAV con `cvlc`, pausa con SIGSTOP y reanudación con SIGCONT |
 | Apps reales | apertura de `galculator` desde la allowlist y cierre posterior |
 | Diagnóstico | `scripts/install.sh` y `python3 -m cort --doctor` |
-| CI y publicación | en GitHub Actions, no en este portátil: el job `pruebas` deja las 158 verdes y corre `--once`; sólo después el job `apk` compila, firma y publica |
+| CI y publicación | en GitHub Actions, no en este portátil: el job `pruebas` deja las 177 verdes y corre `--once`; sólo después el job `apk` compila, firma y publica. Además, `pruebas.yml` corre la suite en cada `push` a `main` y en cada `pull_request` |
+| Personalidad y huecos (2.0.2) | toda salida de fallo sale de `cort/brain/honesto.py`; una pregunta sin respuesta queda en la tabla `gaps` con su motivo y `veces`, se lista con «¿qué no sabés?» y se borra con «olvidá lo que no sabés»; un turno cancelado por Sandra no se anota (medido en `tests/test_app.py`) |
 | APK de bolsillo | `CORT-IA-3.1.2-bolsillo.apk` (201.965 bytes, sha256 `cee5d844…c4813a` verificado con `sha256sum` y coincidiendo con `-firma.txt`) en la Release `v3.1.2`, con `package='com.cort.ia'`, `versionCode 30102`, `minSdkVersion 26`, `targetSdkVersion 34`, 7 permisos, `resources.arsc` sin comprimir y alineado de a 4; la llave `FA:AB:EF:46:…:A3:19:77` es la misma del `CORT-IA-2.11.0-nucleo.apk`, medida con `keytool` sobre los dos archivos |
-| Leer con CORT (2.0.1) | los cuatro componentes del lector están en el `AndroidManifest.xml` binario del APK publicado (`LeerActivity`, `LectorService`, `android.intent.action.PROCESS_TEXT`, `foregroundServiceType`), leídos de la tabla de cadenas en UTF-16; el run `40942914232` compiló con `javac`+`d8` después de las 158 pruebas |
+| Leer con CORT (2.0.1) | los cuatro componentes del lector están en el `AndroidManifest.xml` binario del APK publicado (`LeerActivity`, `LectorService`, `android.intent.action.PROCESS_TEXT`, `foregroundServiceType`), leídos de la tabla de cadenas en UTF-16; el run `40942914232` compiló con `javac`+`d8` después de las pruebas |
 
 Lo que **no** se probó todavía, y por eso no se anuncia como funcionando:
 
@@ -247,6 +251,8 @@ en Android 16.
 | `recuerda que la práctica es el jueves` | guarda una nota |
 | `¿cómo me llamo?` / `memoria` | consulta lo guardado |
 | `olvida mi color favorito` | borra hechos que coincidan |
+| `¿qué no sabés?` / `huecos` | lista lo que CORT no pudo responder, con cuántas veces |
+| `olvidá lo que no sabés` | borra ese registro para empezar de cero |
 | `abre la calculadora` | abre sólo apps de la allowlist |
 | `abre VLC` | abre VLC desde la allowlist |
 | `abre YouTube` / `abre WhatsApp` | abre sitios permitidos |
@@ -276,9 +282,10 @@ cort/
 ├── config.py            TOML + valores por defecto
 ├── bus.py               estado compartido entre núcleo, HUD y voz
 ├── brain/
-│   ├── memory.py        SQLite: hechos, episodios, alarmas y meta
+│   ├── memory.py        SQLite: hechos, episodios, alarmas, meta y huecos
 │   ├── ollama.py        cliente HTTP con streaming y respaldo de modelo
-│   ├── persona.py       personalidad, fecha real y reglas de honestidad
+│   ├── persona.py       personalidad cálida, fecha real y protocolo de «no sé»
+│   ├── honesto.py       la única casa de los fallos: sin modelo, sin pasos, no lo sé
 │   └── harness.py       arnés de agentes con contrato JSON
 ├── tools/               clima, sistema, apps, medios, búsquedas, alarmas,
 │                        apuntes y memoria
@@ -288,15 +295,17 @@ cort/
     └── static/          index.html, hud.css, hud.js (canvas 2D)
 
 apps/bolsillo/           el cliente Android (no es Python: se compila aparte)
-├── AndroidManifest.xml  paquete com.cort.ia, minSdk 26, 4 permisos
-├── src/com/cort/ia/     MainActivity.java: WebView + dirección guardada + micrófono
+├── AndroidManifest.xml  paquete com.cort.ia, minSdk 26, 7 permisos
+├── src/com/cort/ia/     MainActivity (WebView y micrófono), LeerActivity
+│                        (ACTION_PROCESS_TEXT / SEND) y LectorService en primer plano
 ├── res/mipmap-*/        iconos de launcher en 5 densidades
 ├── llave.sh             de dónde sale la llave de firma (secretos ▸ caché ▸ ~/cort-llave.jks)
 ├── compilar.sh          aapt2 ▸ javac ▸ d8 ▸ zip ▸ zipalign ▸ apksigner ▸ auditoría
 └── keystore/            EN `.gitignore`: aquí nunca se guarda la llave
 
 .github/workflows/
-└── apk.yml              un solo flujo: primero las 158 pruebas y `--once`,
+├── pruebas.yml          suite completa y `--once` en cada push a main y en cada PR
+└── apk.yml              primero las pruebas y `--once`,
                          y sólo si salen verdes compila el APK firmado y publica la Release
 ```
 
@@ -383,13 +392,25 @@ o cerrar con:
 ```
 
 Reglas: máximo 3 pasos, cada resultado vuelve al modelo, y se registran las trazas en el HUD. Si el
-modelo no está disponible, el arnés lo dice y sugiere los comandos directos. El diseño está inspirado
-en la idea de OpenClaw y HERMES-AGENT de la referencia, sin copiar código de terceros.
+modelo no está disponible, el arnés lo dice, sugiere los comandos directos y anota el hueco. Si un
+paso falla en el último turno, se detiene ahí y dice qué falló antes de inventar un cierre. El diseño
+está inspirado en la idea de OpenClaw y HERMES-AGENT de la referencia, sin copiar código de terceros.
+
+## Personalidad
+
+Cuando CORT no sabe, no rellena: dice el límite en la primera frase, con tono cálido, y ofrece salidas
+reales (buscar en la web, mirar los apuntes, dejarlo anotado). Todas esas frases viven en
+`cort/brain/honesto.py`, así que la voz no se contradice de un módulo a otro. La persona completa
+—cómo habla, qué no inventa y qué reglas no se rompen— está en `cort/brain/persona.py`; el historial
+de lo que no pudo responder queda en `gaps` y se consulta con «¿qué no sabés?».
 
 ## Memoria y datos
 
 - Base de datos: `~/.local/share/cort/cort.db` (o `$CORT_HOME/cort.db`).
 - Hechos con clave y valor; los episodios se podan a 500 para no crecer sin control.
+- Huecos: cada pregunta que CORT no pudo responder (sin modelo, sin pasos o con error) queda
+  anotada con su motivo y un contador. Se consulta con «¿qué no sabés?» y se borra con
+  «olvidá lo que no sabés». No se anota lo que vos cancelás: un STOP no es un hueco de CORT.
 - Alarmas con hora ISO, mensaje y playlist opcional; se comprueban cada 15 segundos.
 - Apuntes: `knowledge/*.md` y `*.txt`; `README.md` se ignora a propósito.
 - Música: `~/Música`, con búsqueda por carpeta y por nombre de archivo.
@@ -407,27 +428,33 @@ carpeta de datos con `CORT_HOME`.
 python3 -m unittest discover -s tests -v
 ```
 
-Cubren texto y horas, router, memoria SQLite, clima con HTTP simulado, apuntes, arnés, medios,
-servidor del HUD, cliente de Ollama (capas, cancelación, respaldo) y el flujo completo del núcleo.
-No necesitan internet, no abren aplicaciones y usan carpetas temporales. La suite tarda entre uno
-y dos minutos en este equipo.
+Cubren texto y horas, router, memoria SQLite (hechos, episodios, alarmas y huecos), clima con HTTP
+simulado, apuntes, arnés, frases de honestidad y persona, medios, servidor del HUD, cliente de Ollama
+(capas, cancelación, respaldo) y el flujo completo del núcleo. No necesitan internet, no abren
+aplicaciones y usan carpetas temporales. La suite completa son 177 pruebas y tardó 101,8 s en este
+equipo; en Actions corre en cada push a `main` y en cada `pull_request`.
 
 ## Límites y seguridad
 
 - Las apps y sitios se abren sólo desde una allowlist; nunca se ejecuta texto libre ni `shell=True`.
 - No hay acciones destructivas ni envío de mensajes en esta fase.
 - El clima y la conversación fallan con mensajes explícitos; no se rellenan datos inventados.
-- El servidor escucha sólo en `127.0.0.1` por defecto.
-- Esta fase es **local**: no se publicó nada en GitHub ni se modificó el CORT anterior.
+- El servidor escucha sólo en `127.0.0.1` por defecto; para el teléfono hace falta `--host` **y**
+  `--token`, y sin llave no sale del bucle local.
+- El APK vive en este repo público, pero **la llave de firma no**: `keystore/`, `*.jks`,
+  `*.keystore`, `pass.txt` y `cort-llave.*` están en `.gitignore`.
+- No se modificó el CORT anterior de `/home/Sandra/Documentos/CORT`: se leyó, no se tocó.
 
 ## Hoja de ruta
 
 - **F1 (hecha):** núcleo, router, memoria, herramientas, HUD, voz y pruebas.
-- **F2 (en curso):** conversación con Ollama verificada, prompt compacto, historial, descarga y
-  cancelación de modelos, texto parcial y animación de ejecución.
-- **F3:** voz completa (Vosk, palabra de activación, interrupción) y alarmas con playlist.
-- **F4:** avatar humanoide holográfico estilo Cortana, sin sacrificar el rendimiento.
-- **F5:** empaquetado e instalación para otras personas.
+- **F1.5–1.7 (hechas):** conversación con Ollama, HUD v2 con STOP real, repo público y APK firmado.
+- **2.0.1 (hecha):** «Leer con CORT» en el menú de selección, con servicio en primer plano.
+- **2.0.2 (hecha):** personalidad cálida, `honesto.py` y registro de huecos.
+- **2.0.3–2.0.7:** presencia en el teléfono, skills, agente con aprobación, HUD de paneles y
+  modelo híbrido. Detalle y criterios en [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **Después:** voz completa con Vosk y palabra de activación, avatar holográfico y empaquetado
+  para otras personas.
 
 ## Licencia
 

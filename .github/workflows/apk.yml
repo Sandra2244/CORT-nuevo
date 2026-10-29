@@ -156,7 +156,7 @@ jobs:
           SHA="$(sha256sum "CORT-IA-${APK_VERSION}-bolsillo.apk" | awk '{print $1}')"
           HUELLA="$(grep -m1 'llave sha256' "CORT-IA-${APK_VERSION}-bolsillo-firma.txt" | awk '{print $3}')"
           CUERPO=$(cat <<EOF
-          Cliente de bolsillo: una ventana al HUD que corre en la PC, y desde 3.1.0
+          Cliente de bolsillo: una ventana al HUD que corre en la PC, y desde la 3.1.2
           también un lector en voz alta que funciona sin la PC.
 
           * Paquete \`com.cort.ia\`, versión \`$APK_VERSION\`.
